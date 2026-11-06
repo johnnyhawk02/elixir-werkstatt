@@ -43,6 +43,27 @@ const drone = () => {
   p.msg({ type: 'pitch', v: 0.25 }); const c = 1200 * Math.log2(freqOf(p) / f0);
   check(Math.abs(c - 25) < 1, `pitch +0.25 st is +${c.toFixed(2)} cents`);
 }
+// voice B into voice A: with the FM off and B at level 0, B isn't run and A sounds as it did alone; FM (expo or linear,
+// from B's VCO or its output) changes A's sound and stays finite and sane; B's level brings B in
+{
+  const run = (fmP, wsB) => {
+    const p = drone(); p.msg({ type: 'ws', p: { vcaMode: 1, cutoff: 70, reso: 30 } });
+    if (wsB) p.msg({ type: 'wsB', p: wsB }); if (fmP) p.msg({ type: 'fm', p: fmP });
+    p.msg({ type: 'note', n: 0, acc: true, gate: 5 });
+    const L = []; for (let b = 0; b < 200; b++) { p._render(p.A); L.push(...p.A[0]); }
+    let bad = false, peak = 0; for (const x of L) { if (!Number.isFinite(x)) bad = true; peak = Math.max(peak, Math.abs(x)); }
+    return { L, bad, peak, bTicks: p.w.b.cv !== null };
+  };
+  const diff = (x, y) => x.L.reduce((m, v, i) => Math.max(m, Math.abs(v - y.L[i])), 0);
+  const off = run(null, null), quiet = run({ fm: 0, levelB: 0 }, { note: 48, vcaMode: 1, cutoff: 100 });
+  check(!off.bTicks && diff(off, quiet) === 0, 'FM off and B silent: B is not run, and A sounds the same');
+  const B = { note: 55, vcaMode: 1, cutoff: 100, reso: 0 };
+  const cases = [['expo from b vco', { fm: 50 }], ['lin from b vco', { fm: 70, fmMode: 1 }], ['expo from b out', { fm: 50, fmSrc: 1 }], ['b level', { levelB: 80 }]];
+  for (const [name, f] of cases) {
+    const r = run(f, B);
+    check(!r.bad && r.peak < 1.5 && diff(r, off) > 0.01, `${name}: changes the sound, finite and sane (peak ${(20 * Math.log10(r.peak)).toFixed(1)} dB)`);
+  }
+}
 // the sequencer
 {
   const p = new Player(LXR.REAL_FS), hits = [];
@@ -56,7 +77,7 @@ const drone = () => {
   for (let b = 0; b < Math.ceil(16 * len / 64); b++) {
     p._render(p.A);
     if (p.slideFrom !== null) slid = true;
-    if (p.step === 5 && p.toNext < len * 0.3 && p.w.eg.stage === 3) let_go = true;
+    if (p.step === 5 && p.toNext < len * 0.3 && p.w.a.eg.stage === 3) let_go = true;
   }
   check(JSON.stringify(hits) === JSON.stringify([[0, 0], [2, 3], [4, 7]]), `steps 0, 2 and 4 open the gate; the rest and the slid-into step don't (${JSON.stringify(hits)})`);
   check(slid, 'step 2 slides into step 3');

@@ -16,9 +16,10 @@ class Player {
     // and is kept for its FX bus (the echo), which takes the Werkstatt's output as drum 1's, panned centre
     this.e.voices = 0;
     this.e.drums[0].triggeredPanL = this.e.drums[0].triggeredPanR = Math.SQRT1_2;
-    this.w = new LXR.Werkstatt(LXR.REAL_FS);
+    // two of them: voice A and voice B, B able to frequency-modulate A (WerkstattPair)
+    this.w = new LXR.WerkstattPair(LXR.REAL_FS);
     // ws: the Werkstatt's knobs as the page set them (the morph moves one of them from here)
-    this.ws = { ...LXR.WS_DEFAULTS };
+    this.ws = { ...LXR.WS_DEFAULTS }; this.fm = { ...LXR.FM_DEFAULTS };
     this.gateOpen = false;
     this.ratio = LXR.REAL_FS / outRate;
     this.A = [new Float32Array(64), new Float32Array(64)];
@@ -66,7 +67,9 @@ class Player {
   msg(m) {
     if (m.type === 'param') this.e.setParam(m.par, m.value);
     else if (m.type === 'kit') this.e.loadKit(m.values);
-    else if (m.type === 'ws') { Object.assign(this.ws, m.p); this.w.set(this.ws); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
+    else if (m.type === 'ws') { Object.assign(this.ws, m.p); this.w.a.set(this.ws); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
+    else if (m.type === 'wsB') this.w.b.set(m.p);
+    else if (m.type === 'fm') { Object.assign(this.fm, m.p); this.w.setFm(this.fm); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
     else if (m.type === 'pitch') { this.pitch = m.v; this.setPitch(this.cur); }
     else if (m.type === 'note') this.play(m.n, m.acc, m.gate, false, m.m || 0);
     else if (m.type === 'delay') this.delayPos = m.pos;
@@ -93,7 +96,7 @@ class Player {
       this.accGain = Math.pow(10, -m.accentDb / 20);
       const mp = m.morph === undefined ? null : m.morph;
       if (mp !== this.morphPar) {
-        if (this.morphPar !== null) this.w.set({ [this.morphPar]: this.ws[this.morphPar] });
+        if (this.morphPar !== null) this.morphTo(this.morphPar, null);
         this.morphPar = mp; this.mCur = 0; this.mFrom = null; this.mSet = null;
       }
       if (m.playing && !this.playing) { this.step = 0; this.pos = 0; this.bar = 0; this.toNext = 0; this.cutAt = Infinity; this.slideFrom = null; this.mFrom = null; }
@@ -134,8 +137,13 @@ class Player {
     const par = this.morphPar;
     if (par === null || k === this.mSet) return;
     this.mSet = k;
-    const b = this.ws[par], top = LXR.WS_PARAMS.find((q) => q[0] === par)[4];
-    this.w.set({ [par]: b + (top - b) * k });
+    this.morphTo(par, k);
+  }
+  // a morph knob (voice A's, or the FM's) at k of the way to its top; null: back to the sound's own value
+  morphTo(par, k) {
+    const fm = par in this.fm, b = fm ? this.fm[par] : this.ws[par];
+    const top = (fm ? LXR.FM_PARAMS : LXR.WS_PARAMS).find((q) => q[0] === par)[4], v = k ? b + (top - b) * k : b;
+    if (fm) this.w.setFm({ ...this.fm, [par]: v }); else this.w.a.set({ [par]: v });
   }
   // step s (of the sequence's len steps): its note, slid into from the step before when that one slides and both play; a step that slides on
   // keeps its gate open into the next (the sequence wraps at its length)

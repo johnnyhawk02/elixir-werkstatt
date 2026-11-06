@@ -30,7 +30,9 @@ storedCheck('m-nextbar', 'elixir-werkstatt-nextbar', false);
 // sound: a new patch for the Werkstatt, in ranges that still play notes: the base note and the volume stay; mostly a
 // saw or a pulse through the ladder with the EG on the filter, now and then the LFO on the VCO or the filter. One part per
 // section of the voice page, so each section can be randomised on its own
-const rSet = (key, v) => { const sp = WS_SPEC[key]; setWs(key, Math.max(sp.min, Math.min(sp.max, Math.round(v)))); };
+// (rV: the voice being randomised, A unless a section button is pressed with one of B's tabs showing)
+let rV = 'a';
+const rSet = (key, v) => { const sp = WS_SPEC[key]; VOICE_OF[rV].set(key, Math.max(sp.min, Math.min(sp.max, Math.round(v)))); };
 const RANDOM_VOICE = {
   tone() {
     rSet('wave', chance(0.5) ? 1 : 0); rSet('pwm', chance(0.5) ? 0 : rIn(10, 85)); rSet('fine', 0);
@@ -86,9 +88,9 @@ for (const id of ['m-valter', 'm-mvalter']) $(id).addEventListener('click', (e) 
 for (const id of ['m-vrand', 'm-mvrand']) $(id).addEventListener('click', (e) => mRandomise(e.currentTarget, randomSound));
 // the voice page's section randomisers: one section new, and its tab shown so the change can be seen
 for (const b of document.querySelectorAll('[data-vrand]')) b.addEventListener('click', (e) => {
-  const sec = b.dataset.vrand;
-  mVSec = VP_TABS.findIndex(([, secs]) => secs.includes(sec)); mVoiceShow();
-  mRandomise(e.currentTarget, RANDOM_VOICE[sec]);
+  const sec = b.dataset.vrand, voice = VP_TABS[mVSec][1] === 'b' ? 'b' : 'a';
+  mVSec = VP_TABS.findIndex(([, v, secs]) => v === voice && secs.includes(sec)); mVoiceShow();
+  mRandomise(e.currentTarget, () => { rV = voice; try { RANDOM_VOICE[sec](); } finally { rV = 'a'; } });
 });
 for (const b of document.querySelectorAll('[data-fxrand]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { RANDOM_FX[b.dataset.fxrand](); sendMix(); }));
 for (const id of ['m-fxr2', 'm-fxr3']) $(id).addEventListener('click', (e) => mRandomise(e.currentTarget, randomFx));

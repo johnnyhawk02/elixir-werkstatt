@@ -50,6 +50,16 @@ export const WS_PARAMS = [
   ['lfoWave', 'lfo wave', 'mod', 0, 1, 0, (v) => ['tri', 'square'][v]],
 ].map(Object.freeze);
 export const WS_DEFAULTS = Object.freeze(Object.fromEntries(WS_PARAMS.map((p) => [p[0], p[5]])));
+// voice B (a second Werkstatt, the same circuit, playing the same notes) into voice A: the FM knob and its switches, and
+// the mixer that sums the two. Same shape as WS_PARAMS
+export const FM_PARAMS = [
+  ['fm', 'fm amt', 'fm', 0, 100, 0, pctW], // B into A
+  ['fmSrc', 'fm src', 'fm', 0, 1, 0, (v) => ['b vco', 'b out'][v]], // B's VCO, or B after its VCF and VCA
+  ['fmMode', 'fm mode', 'fm', 0, 1, 0, (v) => ['expo', 'lin'][v]], // into A's pitch CV, or a current into A's core
+  ['levelA', 'a level', 'fm', 0, 100, 100, pctW],
+  ['levelB', 'b level', 'fm', 0, 100, 0, pctW],
+].map(Object.freeze);
+export const FM_DEFAULTS = Object.freeze(Object.fromEntries(FM_PARAMS.map((p) => [p[0], p[5]])));
 
 // estimated component values, SI units
 export const WS_CIRCUIT = Object.freeze({
@@ -66,6 +76,10 @@ export const WS_CIRCUIT = Object.freeze({
   vcaRabc: 47e3, vcaDivTop: 33e3, vcaDivBottom: 220, vcaRf: 30e3, vcaFeedthroughSd: 0.004,
   lfoAmp: 5, // LFO swing, +/- V
   outputHp: 10, // output coupling, Hz
+  // the FM: the source through the FM pot (audio taper) into either A's expo summer (fmExpo volts of CV per volt at full
+  // knob: B's +/- 5 V swings A +/- 4 octaves) or, through fmLinR, as a current straight into A's ramp capacitor
+  // (linear FM: no through-zero, the core stalls on a negative current; 1.6 Mohm makes B's 5 V about A's own current at C3)
+  fmExpo: 0.8, fmLinR: 1.6e6, fmTaper: 10,
 });
 
 // ---------------------------------------------------------------- components (after dfam-model js/dfam.js)
@@ -289,7 +303,8 @@ export class Werkstatt {
   noteOn(offset, gate = true) { this.offset = offset; if (gate) this.eg.on(); }
   setOffset(offset) { this.offset = offset; }
   noteOff() { this.eg.off(); }
-  tick() {
+  // one oversampled tick. fmCv: volts added to the VCO's expo CV; fmI: amps added to its core current (both from the FM)
+  tick(fmCv = 0, fmI = 0) {
     const q = this.p, C = this.C;
     const target = (q.note + q.fine / 100 + this.offset - 69) / 12;
     if (this.cv === null) this.cv = target;
@@ -298,9 +313,10 @@ export class Werkstatt {
     const lfo = this.lfo.process(lfoHz(q.lfoRate), q.lfoWave);
     // the mod sources as volts: the LFO either way, the EG up (both scaled so full knob gives the octaves set)
     const src = (s) => (s ? env / C.egPeak : lfo / C.lfoAmp);
-    const vcoCv = this.cv + q.vcoMod / 100 * C.vcoModOctaves * src(q.vcoSrc);
-    const [saw, pulse] = this.vco.process(this.vcoExpo.current(vcoCv, this.vcoIMax), this.width);
-    const osc = q.wave ? pulse : saw;
+    const vcoCv = this.cv + q.vcoMod / 100 * C.vcoModOctaves * src(q.vcoSrc) + fmCv;
+    const ic = Math.max(1e-12, this.vcoExpo.current(vcoCv, this.vcoIMax) + fmI);
+    const [saw, pulse] = this.vco.process(ic, this.width);
+    const osc = this.oscOut = q.wave ? pulse : saw;
     const vcfCv = (q.vcfPol ? -1 : 1) * q.vcfMod / 100 * C.vcfModOctaves * src(q.vcfSrc);
     const filt = this.ladder.process(osc * this.lin, this.vcfExpo.current(vcfCv, this.vcfIMax), this.k) / this.lin;
     return this.vca.process(filt, q.vcaMode ? C.egPeak : env);
@@ -318,4 +334,37 @@ export class Werkstatt {
   }
   // true while the voice can still be heard (the EG open, or the VCA held on)
   get sounding() { return this.p.vcaMode === 1 || this.eg.stage !== 0; }
+}
+
+// Two Werkstatts and the FM between them: voice B ticks first, its VCO (or its output) goes through the FM pot into
+// voice A, and a summing mixer adds the two at their levels (each after its own volume). B is only run when it's heard
+// or modulating, so it costs nothing at its defaults (FM off, level 0)
+export class WerkstattPair {
+  constructor(sampleRate) {
+    this.a = new Werkstatt(sampleRate, 1); this.b = new Werkstatt(sampleRate, 2);
+    this.b.oscOut = 0; this.os = this.a.os;
+    this.decim = new Decimator(this.os);
+    this.hpA = Math.exp((-2 * PI * WS_CIRCUIT.outputHp) / sampleRate); this.hpX = 0; this.hpY = 0;
+    this.f = { ...FM_DEFAULTS };
+  }
+  setFm(p) { for (const [k, , , lo, hi] of FM_PARAMS) if (p && typeof p[k] === 'number') this.f[k] = clampW(p[k], lo, hi); }
+  noteOn(offset, gate = true) { this.a.noteOn(offset, gate); this.b.noteOn(offset, gate); }
+  setOffset(offset) { this.a.setOffset(offset); this.b.setOffset(offset); }
+  noteOff() { this.a.noteOff(); this.b.noteOff(); }
+  render(out, n = out.length) {
+    const C = WS_CIRCUIT, F = this.f, A = this.a, B = this.b, d = this.decim;
+    const amt = (Math.pow(C.fmTaper, F.fm / 100) - 1) / (C.fmTaper - 1);
+    const bOn = amt > 0 || F.levelB > 0;
+    const gA = A.p.volume / 100 * F.levelA / 100, gB = B.p.volume / 100 * F.levelB / 100;
+    for (let i = 0; i < n; i++) {
+      for (let k = 0; k < this.os; k++) {
+        const bo = bOn ? B.tick() : 0, src = F.fmSrc ? bo : B.oscOut;
+        const ao = F.fmMode ? A.tick(0, amt * src / C.fmLinR) : A.tick(amt * C.fmExpo * src, 0);
+        d.push(ao * gA + bo * gB);
+      }
+      const x = d.out(), y = this.hpA * (this.hpY + x - this.hpX); this.hpX = x; this.hpY = y;
+      out[i] = y * 10000;
+    }
+    return out;
+  }
 }

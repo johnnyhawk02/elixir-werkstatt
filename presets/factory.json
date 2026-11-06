@@ -1245,6 +1245,25 @@
     "vcoSrc": 1,
     "vcfMod": 40,
     "decay": 40
+   },
+   "wsB": {
+    "wave": 0,
+    "pwm": 60,
+    "cutoff": 100,
+    "reso": 0,
+    "vcoMod": 0,
+    "vcoSrc": 1,
+    "vcfMod": 0,
+    "decay": 30,
+    "note": 55,
+    "vcaMode": 0
+   },
+   "fm": {
+    "fm": 45,
+    "fmSrc": 1,
+    "fmMode": 1,
+    "levelA": 100,
+    "levelB": 0
    }
   },
   {
@@ -2083,6 +2102,24 @@
     "vcfMod": 70,
     "decay": 25,
     "drive": 70
+   },
+   "wsB": {
+    "wave": 0,
+    "cutoff": 100,
+    "reso": 0,
+    "vcoMod": 0,
+    "vcoSrc": 1,
+    "vcfMod": 0,
+    "decay": 25,
+    "drive": 70,
+    "note": 48
+   },
+   "fm": {
+    "fm": 30,
+    "fmSrc": 0,
+    "fmMode": 0,
+    "levelA": 100,
+    "levelB": 15
    }
   },
   {

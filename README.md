@@ -34,7 +34,24 @@ Werkstatt: the VCO as a ramp core (the panel's saw / pulse switch) and the panel
 0.1 to 100 Hz, VCO MOD up to 3 octaves, VCF MOD up to 7). The **drive** knob (the level into the ladder) isn't on the
 Werkstatt's panel.
 
-The voice page has the Werkstatt's controls in four sections:
+### Voice B and the FM
+
+There are two Werkstatts, voice A and voice B: the same circuit, both playing the sequencer's notes (each from its own
+base note, so B's freq sets the ratio). B frequency-modulates A, set on the **fm** knob (also perf dial 6, MIDI CC 6),
+modelled as a circuit too:
+
+- **fm src**: B's VCO (the raw saw or pulse), or B's output after its own VCF and VCA, so B's envelope shapes the
+  modulation like a two-operator FM synth.
+- **fm mode**: **expo** sums the source into A's expo converter (B's +/- 5 V swings A up to +/- 4 octaves at full);
+  **lin** feeds it through a resistor as a current straight into A's ramp capacitor, linear FM. There is no
+  through-zero: on a deep negative swing A's core stalls, as a real ramp core would.
+- The fm knob is an audio-taper pot. **a level** and **b level** set the summing mixer; B is silent by default.
+
+B only runs while it's heard or modulating, so with the FM off and its level at 0 it costs nothing and A sounds as it
+did alone. The perf decay and filter dials and the morph act on voice A (the morph can also move the fm amount). A
+preset keeps B as `wsB` and the FM as `fm`; one from before voice B starts B as a copy of A, with the FM off.
+
+The voice page has each voice's controls in four sections:
 
 | section | controls |
 |---|---|
@@ -66,7 +83,7 @@ no play or record buttons: R starts and stops a recording.
   | CC | dial | | CC | dial |
   |---|---|---|---|---|
   | 1 | tempo | | 5 | reso |
-  | 2 | pitch (two octaves either way) | | 6 | mod (the vco mod) |
+  | 2 | pitch (two octaves either way) | | 6 | fm (voice B into A) |
   | 3 | decay | | 7 | echo send |
   | 4 | filter | | 8 | reverb send |
 
@@ -81,7 +98,7 @@ no play or record buttons: R starts and stops a recording.
   glide time, and random, alter (the page shown) and undo. The algo fader picks how random writes a page: 1 dice,
   2 acid, 3 euclid, 4 arp, 5 walk, 6 motif, 7 groove, 8 phrase, 9 pure, 10 patternz (random bits of a bank of acid patterns, looped, moved up or down the scale, sometimes backwards, and put in the key; page 2 is page 1 changed a little, page 3 is page 1 moved up, page 4 a new cut-up). Presets from before there were pages play their one page
   on all four.
-- **VOICE**: every Werkstatt control, on two tabs: tone + shape, filter + mod (see above).
+- **VOICE**: both Werkstatt voices and the FM, on five tabs: a tone, a filter, b tone, b filter, fm + mix (see above).
 - **FX**: the echo (tempo-synced on musical lengths, ping pong, tone, feedback, width), the reverb (send, predelay,
   decay, tone, early reflections; at the top its decay holds) and the ring mod, with random, alter and undo.
 - **MSTR**: distortion (tube, fold or rat) on the whole mix, then the compressor.

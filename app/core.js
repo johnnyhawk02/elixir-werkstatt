@@ -67,11 +67,17 @@ const parSet = (par, x) => setValue(par, spec(par).idx ? TARGETS[x] : x);
 const WS_SPEC = Object.fromEntries(LXR.WS_PARAMS.map(([key, label, sec, min, max, dflt, show]) => [key, { key, label, sec, min, max, dflt, show }]));
 const ws = { ...LXR.WS_DEFAULTS };
 function setWs(key, v) { ws[key] = v; sendWs(); }
+// voice B: a second Werkstatt on the same notes (its knobs in wsB, the perf macros leave it alone), and fm: the FM from B
+// into A and the two voices' levels (LXR.FM_PARAMS)
+for (const [key, label, sec, min, max, dflt, show] of LXR.FM_PARAMS) WS_SPEC[key] = { key, label, sec, min, max, dflt, show };
+const wsB = { ...LXR.WS_DEFAULTS }, fm = { ...LXR.FM_DEFAULTS };
+const sendWsB = () => send({ type: 'wsB', p: { ...wsB } }), sendFm = () => send({ type: 'fm', p: { ...fm } });
+function setWsB(key, v) { wsB[key] = v; sendWsB(); }
+function setFm(key, v) { fm[key] = v; sendFm(); }
 
-// ---- the perf macros, offsets on top of the sound (the sound keeps its own values): decay, filter and mod from -100%
-// (down to the knob's bottom) through 0 (as the sound) to +100% (all the way up), on the Werkstatt's decay, cutoff and
-// vco mod; pitch moves every note by up to two octaves either way in hundredths of a semitone ----
-const MACROS = { decay: 'decay', filter: 'cutoff', fm: 'vcoMod' };
+// ---- the perf macros, offsets on top of the sound (the sound keeps its own values): decay and filter from -100%
+// (down to the knob's bottom) through 0 (as the sound) to +100% (all the way up), on voice A's decay and cutoff; pitch moves every note by up to two octaves either way in hundredths of a semitone ----
+const MACROS = { decay: 'decay', filter: 'cutoff' }; // (fm: the perf dial is the B into A FM itself now; macro.fm stays, unused, for older presets)
 const MACRO0 = { pitch: 0, decay: 100, filter: 100, fm: 100 };
 const macro = { ...MACRO0 };
 const macroOf = Object.fromEntries(Object.entries(MACROS).map(([m, p]) => [p, m]));
@@ -107,7 +113,7 @@ const OCT_MIN = -2, OCT_MAX = 2;
 // the morph: off (0), or which voice parameter each step's morph value (st.m, 0 to 100) takes from the sound's own value
 // up to the top, gliding between steps on a slide (so the timbre moves with the pitch); off, the steps' values are kept
 // but nothing is heard of them
-const MORPH_DESTS = [['cutoff', 'cutoff'], ['pwm', 'pwm'], ['vco mod', 'vcoMod'], ['vcf mod', 'vcfMod'], ['reso', 'reso'], ['drive', 'drive']];
+const MORPH_DESTS = [['cutoff', 'cutoff'], ['pwm', 'pwm'], ['vco mod', 'vcoMod'], ['vcf mod', 'vcfMod'], ['reso', 'reso'], ['drive', 'drive'], ['fm amt', 'fm']];
 const SEQ0 = { root: 0, scale: 1, oct: 0, density: 100, len: 64, accent: 6, glide: 35, vel: 100, algo: 8, morph: 0,
   steps: [[0, 4, 1, 0], [0, 2, 0, 0], [7, 3, 0, 1], [8, 4, 0, 0], [0, 0, 0, 0], [3, 3, 1, 0], [0, 2, 0, 0], [5, 4, 0, 1],
     [4, 4, 0, 0], [0, 2, 1, 0], [0, 0, 0, 0], [7, 3, 0, 0], [6, 4, 1, 1], [7, 4, 0, 0], [2, 2, 0, 0], [0, 3, 0, 0]].map(([d, gate, acc, slide]) => ({ d, gate, acc: !!acc, slide: !!slide })) };
@@ -241,7 +247,7 @@ async function restartAudio() {
 // everything, to a new audio thread or for a preset
 function sendAll() {
   send({ type: 'kit', values: effValues() });
-  sendWs();
+  sendWs(); sendWsB(); sendFm();
   send({ type: 'pitch', v: macro.pitch });
   send({ type: 'delay', pos: delayPos });
   sendMix(); sendSeq();
@@ -256,7 +262,7 @@ const whenHeard = (fn) => setTimeout(fn, ctx && ctx.outputLatency ? ctx.outputLa
 const PRESET_V = 1;
 let fseqSnapshot = () => ({}), fseqUse = () => {};
 function snapshot() {
-  return { v: PRESET_V, kit: Array.from(values), ws: { ...ws }, macro: { ...macro }, tempo, seq: structuredClone(seq), fx: { ...fx }, dpos: delayPos,
+  return { v: PRESET_V, kit: Array.from(values), ws: { ...ws }, wsB: { ...wsB }, fm: { ...fm }, macro: { ...macro }, tempo, seq: structuredClone(seq), fx: { ...fx }, dpos: delayPos,
     dist: structuredClone(dist), master: { ...master }, fseqs: fseqSnapshot() };
 }
 const drawHooks = [];
@@ -267,6 +273,9 @@ function useSnapshot(p, keepTempo) {
   values[PAR.VOICE_LFO1] = 1;
   // (a preset from before the Werkstatt has no ws: it plays on the Werkstatt's own default sound)
   Object.assign(ws, LXR.WS_DEFAULTS, p.ws || {});
+  // (and one from before voice B has none: B starts as a copy of A, with the FM off and B silent)
+  Object.assign(wsB, LXR.WS_DEFAULTS, p.wsB || p.ws || {});
+  Object.assign(fm, LXR.FM_DEFAULTS, p.fm || {});
   Object.assign(macro, MACRO0, p.macro);
   if (!keepTempo && p.tempo) tempo = p.tempo;
   Object.assign(seq, structuredClone(SEQ0), structuredClone(p.seq || {}));
