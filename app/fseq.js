@@ -123,16 +123,16 @@ const FS_RAND = [
   ['s&h', () => { const hold = 2 + Math.floor(rnd() * 3); let v = 0; return Array.from({ length: FS_MAX }, (_, i) => { if (i % hold === 0) v = rr(); return v; }); }],
   ['sparse', () => Array.from({ length: FS_MAX }, () => (rnd() < 0.22 ? rr() : 0))],
 ];
-const FS_TYPE_KEY = 'elixir-synth-seqrand';
+const FS_TYPE_KEY = 'elixir-werkstatt-seqrand';
 let fsType = Math.max(0, FS_RAND.findIndex(([n]) => n === store.get(FS_TYPE_KEY)));
 $('m-fs-type').addEventListener('click', () => { fsType = (fsType + 1) % FS_RAND.length; store.set(FS_TYPE_KEY, FS_RAND[fsType][0]); fsDraw(); });
 $('m-fs-rand').addEventListener('click', () => { const q = fsF.seq; q.vals = FS_RAND[fsType][1](q.len).map(fsOff); q.on = true; fsDraw(); });
 // the main page's knob seq randomiser: the knob sequencers all cleared, then new ones on one to three of the faders
 // worth moving (the filter most often), each of a random kind, length, speed, depth and slew, now and then with a
 // slide or two; knob seqs off clears them all. Both can be undone
-const FS_TARGETS = ['m-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:reso', 'm-voice-filter:flt drive',
-  'm-voice-tone:pwm', 'm-voice-tone:fm amt', 'm-voice-tone:fm amt', 'm-voice-tone:fm freq', 'm-voice-shape:decay', 'm-voice-shape:pitch amt',
-  'm-voice-filter:srate', 'm-voice-filter:drive', 'm-echo:send', 'm-echo:feedback', 'm-verb:send', 'm-ring:freq'];
+const FS_TARGETS = ['m-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:reso', 'm-voice-filter:vcf mod',
+  'm-voice-filter:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-tone:vco mod', 'm-voice-shape:decay', 'm-voice-mod:lfo rate',
+  'm-echo:send', 'm-echo:feedback', 'm-verb:send', 'm-ring:freq'];
 function fsClearAll() { for (const f of mFaders) { fsRelease(f); f.seq = null; } if (fsF) $('m-fs-close').click(); fsMarks(); }
 function fsRandomAll() {
   fsClearAll();

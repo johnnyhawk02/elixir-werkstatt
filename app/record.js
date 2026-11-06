@@ -32,7 +32,7 @@ async function finishTake(ev) {
     const frames = Math.round(n * rate / LXR.REAL_FS), off = new OfflineAudioContext(2, frames, rate);
     const bs = off.createBufferSource(); bs.buffer = src; bs.connect(off.destination); bs.start();
     const out = await off.startRendering();
-    const name = `elixir-synth ${(pCur && pCur.name) || 'take'} ${ev.bpm}bpm ${++takeNo}.wav`.replace(/[^\w' .-]/g, '');
+    const name = `elixir-werkstatt ${(pCur && pCur.name) || 'take'} ${ev.bpm}bpm ${++takeNo}.wav`.replace(/[^\w' .-]/g, '');
     mDownload({ blob: wavBlob(out.getChannelData(0), out.getChannelData(1), rate), name });
   }
   recChunks = []; recState = 'off'; recUi();

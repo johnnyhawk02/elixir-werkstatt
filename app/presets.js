@@ -1,8 +1,8 @@
 // ---- presets: everything (the sound, perf macros, notes, tempo, effects, master and the fader sequencers) under a
-// two-word name, kept in this browser under elixir-synth's own key. Save new, save over the loaded one, load, delete,
+// two-word name, kept in this browser under elixir-werkstatt's own key. Save new, save over the loaded one, load, delete,
 // import and export. While playing, a preset waits for the next bar: until it's heard, the one playing stays marked
 // and the new one's row flashes ----
-const SAVE_KEY = 'elixir-synth-presets';
+const SAVE_KEY = 'elixir-werkstatt-presets';
 const fromData = (p, extra) => ({ ...structuredClone(p), ...extra });
 const presetList = [{ name: 'Init', ...snapshot(), builtin: true },
   ...BUILTIN_PRESETS.filter((p) => p && p.v === PRESET_V && p.kit).map((p) => fromData(p, { builtin: true }))];
@@ -10,7 +10,7 @@ const presetData = (k) => { const { builtin, saved, ...p } = k; return structure
 try { for (const p of JSON.parse(store.get(SAVE_KEY)) || []) if (p && p.v === PRESET_V && p.kit) presetList.push(fromData(p, { saved: true })); } catch (e) {}
 const storePresets = () => store.set(SAVE_KEY, JSON.stringify(presetList.filter((k) => k.saved).map(presetData)));
 let pCur = presetList[0], pPending = null, pShown = null;
-storedCheck('m-pbpm', 'elixir-synth-presetbpm');
+storedCheck('m-pbpm', 'elixir-werkstatt-presetbpm');
 storedCheck('m-bigbuf', BIGBUF_KEY, false);
 // (a take being recorded keeps the buffer it has: the new one comes with the next start)
 $('m-bigbuf').addEventListener('change', () => { if (recState === 'off') restartAudio(); });
@@ -102,13 +102,13 @@ $('m-pimport').addEventListener('change', async (e) => {
   }
   e.target.value = '';
   if (n) storePresets();
-  $('m-pnote').textContent = (n ? `Imported ${n}.` : 'Nothing new to import.') + (bad ? ` ${bad} skipped: not elixir-synth presets.` : '');
+  $('m-pnote').textContent = (n ? `Imported ${n}.` : 'Nothing new to import.') + (bad ? ` ${bad} skipped: not Elixir presets.` : '');
   pDraw();
 });
 $('m-pexport').addEventListener('click', async () => {
   const list = presetList.filter((k) => k.saved).map(presetData);
   if (!list.length) { $('m-pnote').textContent = 'No presets of yours to export yet.'; return; }
   const blob = new Blob([JSON.stringify({ elixirSynth: 1, presets: list }, null, 1)], { type: 'application/json' });
-  if (await mOffer({ blob, name: 'elixir-synth-presets.json' }, 'application/json')) $('m-pnote').textContent = `Exported ${list.length} preset${list.length > 1 ? 's' : ''}.`;
+  if (await mOffer({ blob, name: 'elixir-werkstatt-presets.json' }, 'application/json')) $('m-pnote').textContent = `Exported ${list.length} preset${list.length > 1 ? 's' : ''}.`;
 });
 pDraw();

@@ -1,12 +1,11 @@
 // Checks the synth's sound side without a browser: the built page's engine, audio thread and state (app/core.js) run
 // in Node, the player rendering offline.
 //   node test/engine.mjs [index.html]
-// - a note on a whole semitone is bit-exact: the voice renders exactly what the engine's own trigger on that note does
-// - pitch between semitones is continuous (cents), and back on a semitone it's exact again
-// - the sequencer: rests don't play, a slide glides into the next step without a retrigger, a short gate closes;
+// - the Werkstatt voice is in tune: its base note plus the sequencer's offset lands on the right frequency, and pitch
+//   between semitones moves it in cents
+// - the sequencer: rests don't play, a slide glides into the next step without a new gate, a short gate lets the EG go;
 //   four pages play in turn
 // - the reverb leaves a finite tail, and holds at the top of its decay
-// - a retrigger over a note still sounding doesn't jump (the declick), and the new note settles to the engine's own
 // - every built-in preset loads and plays at a sane level
 import { readFileSync } from 'node:fs';
 const html = readFileSync(process.argv[2] || new URL('../index.html', import.meta.url), 'utf8');
@@ -19,53 +18,55 @@ const { LXR, Player } = env;
 let fails = 0;
 const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) fails++; };
 
-// whole semitones: the player's note against a bare engine's trigger, sample for sample
+// tuning: a drone (VCA on, filter open) measured by its zero crossings, against equal temperament from A4 = 440 Hz
+const freqOf = (p, secs = 1) => {
+  const L = []; for (let b = 0; b < Math.ceil(LXR.REAL_FS * secs / 64); b++) { p._render(p.A); L.push(...p.A[0]); }
+  const half = Math.floor(L.length / 2); let first = -1, last = -1, n = 0;
+  for (let i = half + 1; i < L.length; i++) if (L[i - 1] < 0 && L[i] >= 0) { const t = i - 1 + L[i - 1] / (L[i - 1] - L[i]); if (first < 0) first = t; else n++; last = t; }
+  return n / ((last - first) / LXR.REAL_FS);
+};
+const drone = () => {
+  const p = new Player(LXR.REAL_FS);
+  p.msg({ type: 'mix', master: { comp: false }, dist: { type: 0, p: [0, 0, 0, 0], mix: 0 }, ring: { wave: 0, freq: 40 }, sendE: 0, sendR: 0, width: 100, sendV: 0 });
+  p.msg({ type: 'ws', p: { vcaMode: 1, cutoff: 100, reso: 0, wave: 0 } });
+  return p;
+};
 {
   let worst = 0;
-  for (const n of [-24, -12, -5, 0, 3, 7, 12, 19]) {
-    // (the player renders two blocks as it starts)
-    const p = new Player(LXR.REAL_FS), ref = new LXR.LxrEngine(); ref.loadInitKit(); ref.renderBlock(); ref.renderBlock();
-    p.msg({ type: 'pitch', v: 0 }); p.msg({ type: 'note', n, acc: true, gate: 5 });
-    ref.trigger(0, 127, 60 + n);
-    for (let k = 0; k < 200; k++) { p._render(p.A); const a = p.e.out[0], b = ref.renderBlock()[0]; for (let i = 0; i < 64; i++) worst = Math.max(worst, Math.abs(a[i] - b[i])); }
+  for (const n of [-12, 0, 7, 21, 33]) {
+    const p = drone(); p.msg({ type: 'note', n, acc: true, gate: 5 });
+    const want = 440 * Math.pow(2, (36 + n - 69) / 12), c = 1200 * Math.log2(freqOf(p) / want);
+    worst = Math.max(worst, Math.abs(c));
   }
-  check(worst === 0, `whole semitones are bit-exact (max difference ${worst})`);
-}
-// between semitones: the oscillator's frequency moves in cents, and is exact again on the semitone
-{
-  const p = new Player(LXR.REAL_FS), ref = new LXR.LxrEngine(); ref.loadInitKit();
-  p.msg({ type: 'note', n: 0, acc: true, gate: 5 }); ref.trigger(0, 127, 60);
-  const f0 = p.e.drums[0].osc.freq;
-  p.msg({ type: 'pitch', v: 0.25 }); const c = 1200 * Math.log2(p.e.drums[0].osc.freq / f0);
-  p.msg({ type: 'pitch', v: 0 });
-  check(Math.abs(c - 25) < 0.01, `pitch +0.25 st is +${c.toFixed(2)} cents`);
-  check(p.e.drums[0].osc.freq === ref.drums[0].osc.freq, 'back on the semitone the frequency is exact');
+  check(worst < 3, `the Werkstatt is in tune from C1 to A4 (worst ${worst.toFixed(2)} cents; the expo's bulk resistance runs it a little flat up top)`);
+  const p = drone(); p.msg({ type: 'note', n: 0, acc: true, gate: 5 }); const f0 = freqOf(p);
+  p.msg({ type: 'pitch', v: 0.25 }); const c = 1200 * Math.log2(freqOf(p) / f0);
+  check(Math.abs(c - 25) < 1, `pitch +0.25 st is +${c.toFixed(2)} cents`);
 }
 // the sequencer
 {
   const p = new Player(LXR.REAL_FS), hits = [];
-  const trig = p.e.trigger.bind(p.e);
-  p.e.trigger = (v, vel, note) => { hits.push([p.step, note]); trig(v, vel, note); };
+  const on = p.w.noteOn.bind(p.w);
+  p.w.noteOn = (off, gate) => { hits.push([p.step, Math.round(off)]); on(off, gate); };
   const S = (n, gate, acc, slide) => ({ n, gate, acc, slide });
   const steps = [S(0, 4, 1, 0), S(2, 0, 0, 0), S(3, 4, 0, 1), S(5, 4, 0, 0), S(7, 1, 0, 0), ...Array.from({ length: 11 }, () => S(0, 0, 0, 0))];
   p.msg({ type: 'seq', playing: true, bpm: 120, vel: 100, glide: 0.5, accentDb: 6, steps });
   const len = LXR.REAL_FS * 60 / 120 / 4;
-  let minGain = 1, slid = false;
+  let let_go = false, slid = false;
   for (let b = 0; b < Math.ceil(16 * len / 64); b++) {
     p._render(p.A);
     if (p.slideFrom !== null) slid = true;
-    if (p.step === 5 && p.toNext < len * 0.3) minGain = Math.min(minGain, p.gain);
+    if (p.step === 5 && p.toNext < len * 0.3 && p.w.eg.stage === 3) let_go = true;
   }
-  const played = hits.map(([s, note]) => [s, note - 60]);
-  check(JSON.stringify(played) === JSON.stringify([[0, 0], [2, 3], [4, 7]]), `steps 0, 2 and 4 trigger; the rest and the slid-into step don't (${JSON.stringify(played)})`);
+  check(JSON.stringify(hits) === JSON.stringify([[0, 0], [2, 3], [4, 7]]), `steps 0, 2 and 4 open the gate; the rest and the slid-into step don't (${JSON.stringify(hits)})`);
   check(slid, 'step 2 slides into step 3');
-  check(minGain === 0, 'a quarter gate closes before its step is out');
+  check(let_go, 'a quarter gate lets the EG go before its step is out');
 }
 // four pages: they play in turn, a bar each, then page 1 again
 {
   const p = new Player(LXR.REAL_FS), hits = [];
-  const trig = p.e.trigger.bind(p.e);
-  p.e.trigger = (v, vel, note) => { hits.push(note - 60); trig(v, vel, note); };
+  const on = p.w.noteOn.bind(p.w);
+  p.w.noteOn = (off, gate) => { hits.push(Math.round(off)); on(off, gate); };
   const steps = Array.from({ length: 64 }, (_, i) => ({ n: Math.floor(i / 16), gate: i % 16 === 0 ? 4 : 0, acc: false, slide: false }));
   p.msg({ type: 'seq', playing: true, bpm: 120, vel: 100, glide: 0.5, accentDb: 6, steps });
   for (let b = 0; b < Math.ceil(LXR.REAL_FS * 2 * 4.5 / 64); b++) p._render(p.A);
@@ -92,37 +93,6 @@ const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if
   check(!r.bad && !held.bad && r.peak < 1.5 && held.peak < 1.5, `reverb: finite and sane (peak ${dB(r.peak)} dB)`);
   check(r.tail > 0.001, `reverb: a tail after the note (${dB(r.tail)} dB at 0.4 s)`);
   check(held.tail > 0.01, `reverb: decay at the top holds (${dB(held.tail)} dB after 2.8 s)`);
-}
-// the declick: retriggering the default sound (and the same with its filter closed down) while a note still sounds, at many points in its cycle, the first sample
-// of the new note is never further from the last one than the waveform itself moves in a sample, and it leaves at the
-// old note's slope; 25 ms on, the note is the engine's own again (the compressor off, to compare)
-{
-  let worstJump = 0, worstEdge = 0, worstLater = 0, worstBend = 0;
-  // (with the filter as it is, and closed right down, where a near-sine has nothing on top to hide a kink)
-  for (const cut of [null, 8]) for (let at = 20; at < 60; at++) {
-    const p = new Player(LXR.REAL_FS), sn = env.snapshot(); if (cut !== null) sn.kit[LXR.PAR.FILTER_FREQ_1] = cut;
-    env.setFallback(p); env.useSnapshot(sn, false);
-    p.master.comp = false;
-    const L = [], B = [new Float32Array(64), new Float32Array(64)];
-    const blk = () => { p._render(B); L.push(...B[0]); };
-    p.msg({ type: 'note', n: 0, acc: true, gate: 5 });
-    for (let k = 0; k < at; k++) blk();
-    const i0 = L.length;
-    p.msg({ type: 'note', n: 7, acc: true, gate: 5 });
-    for (let k = 0; k < 20; k++) blk();
-    for (let i = 1; i < i0; i++) worstEdge = Math.max(worstEdge, Math.abs(L[i] - L[i - 1]));
-    worstJump = Math.max(worstJump, Math.abs(L[i0] - L[i0 - 1]));
-    // closed down, the slope carries on too: the step into the new note is the step before it, give or take the curve
-    if (cut !== null) worstBend = Math.max(worstBend, Math.abs((L[i0 + 1] - L[i0]) - (L[i0 - 1] - L[i0 - 2])) - Math.abs((L[i0 - 1] - L[i0 - 2]) - (L[i0 - 2] - L[i0 - 3])) * 2);
-    // past 25 ms the offset is gone: the voice is the engine's output, at the gain
-    const late = i0 + Math.ceil(0.025 * LXR.REAL_FS);
-    const raw = p.e.out[0], pl = p.e.drums[0].triggeredPanL / 32768;
-    for (let i = L.length - 64; i < L.length; i++) if (i >= late) worstLater = Math.max(worstLater, Math.abs(L[i] - raw[i - (L.length - 64)] * pl));
-  }
-  check(worstJump <= worstEdge, `a retrigger doesn't jump (at most ${worstJump.toFixed(3)}, the waveform's own steps up to ${worstEdge.toFixed(3)})`);
-  check(worstBend < 0.005, `with the filter closed, a retrigger doesn't bend the waveform (${worstBend.toFixed(4)})`);
-  check(worstLater < 1e-4, `the declick has died away 25 ms on (${worstLater.toExponential(1)})`);
-  env.setFallback(null);
 }
 // the built-in presets: each loads and plays at a sane level
 {

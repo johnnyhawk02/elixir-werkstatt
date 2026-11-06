@@ -9,7 +9,7 @@ import { pathToFileURL } from 'node:url';
 const { chromium } = createRequire(import.meta.url)('playwright');
 const url = pathToFileURL(process.argv[2] || new URL('../index.html', import.meta.url).pathname).href;
 let fails = 0;
-const VP_FILTER = ['FILTER_FREQ_1', 'RESO_1', 'FILTER_TYPE_1', 'FILTER_DRIVE_1', 'VOL1', 'PAN1', 'VOICE_DECIMATION1', 'DRIVE1'];
+const VP_FILTER = ['cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive']; // the Werkstatt's filter section
 const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) fails++; };
 const b = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
 for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
@@ -52,13 +52,13 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('[data-m-tab="main"]');
   check(await pg.evaluate(() => { const p = document.querySelector('[data-m-panel="main"]').getBoundingClientRect(), bs = [...document.querySelectorAll('.m-main-card .m-btn, .m-main-card .m-chk, .m-main-card .m-toggle')];
     return PANELS[0].dataset.mPanel === 'main' && bs.length === 22 && bs.every((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.bottom <= p.bottom + 0.5 && e.scrollWidth <= e.clientWidth; }); }), 'main: every randomiser and save fit, each whole');
-  const mainBefore = await pg.evaluate(() => JSON.stringify([values[PAR.FILTER_FREQ_1], values[PAR.RESO_1], values[PAR.FILTER_DRIVE_1], values[PAR.DRIVE1]]));
+  const mainBefore = await pg.evaluate(() => JSON.stringify([ws.cutoff, ws.reso, ws.vcfMod, ws.drive]));
   await pg.click('.m-main-card [data-vrand="filter"]');
-  check(await pg.evaluate((b) => JSON.stringify([values[PAR.FILTER_FREQ_1], values[PAR.RESO_1], values[PAR.FILTER_DRIVE_1], values[PAR.DRIVE1]]) !== b && !document.querySelector('.m-main-card [data-undo]').disabled && mCur === 0, mainBefore), 'main: a section randomiser works there and can be undone');
+  check(await pg.evaluate((b) => JSON.stringify([ws.cutoff, ws.reso, ws.vcfMod, ws.drive]) !== b && !document.querySelector('.m-main-card [data-undo]').disabled && mCur === 0, mainBefore), 'main: a section randomiser works there and can be undone');
   await pg.click('.m-main-card [data-undo]');
-  check(await pg.evaluate((b) => JSON.stringify([values[PAR.FILTER_FREQ_1], values[PAR.RESO_1], values[PAR.FILTER_DRIVE_1], values[PAR.DRIVE1]]) === b, mainBefore), 'main: undo puts it back');
+  check(await pg.evaluate((b) => JSON.stringify([ws.cutoff, ws.reso, ws.vcfMod, ws.drive]) === b, mainBefore), 'main: undo puts it back');
   await pg.click('.m-main-card .m-nextbar');
-  check(await pg.evaluate(() => $('m-nextbar').checked && localStorage.getItem('elixir-synth-nextbar') === '1'), 'main: next bar is kept');
+  check(await pg.evaluate(() => $('m-nextbar').checked && localStorage.getItem('elixir-werkstatt-nextbar') === '1'), 'main: next bar is kept');
   await pg.click('.m-main-card .m-nextbar');
   // shift on the main page moves the pattern as the seq page's does
   const shBefore = await pg.evaluate(() => JSON.stringify(seq.steps.slice(0, seq.len)));
@@ -86,7 +86,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.evaluate(() => { seq.algo = 0; seq.density = 100; sendSeq(); drawAll(); });
   // the metronome: a toggle kept in this browser; the player clicks on each beat with it on, and is silent with it off
   await pg.click('#m-metro');
-  check(await pg.evaluate(() => metroOn && $('m-metro').getAttribute('aria-pressed') === 'true' && localStorage.getItem('elixir-synth-metro') === '1'), 'the metronome (beside the title) turns on and is kept');
+  check(await pg.evaluate(() => metroOn && $('m-metro').getAttribute('aria-pressed') === 'true' && localStorage.getItem('elixir-werkstatt-metro') === '1'), 'the metronome (beside the title) turns on and is kept');
   check(await pg.evaluate(() => { const m = $('m-metro').getBoundingClientRect(), t = $('m-title').getBoundingClientRect(); return m.left >= t.right && m.top < t.bottom && m.right <= $('m-side').getBoundingClientRect().left; }), 'the metronome sits beside the title');
   await pg.click('#m-metro');
   check(await pg.evaluate(() => {
@@ -102,7 +102,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   // the voice's randomisers, down the right of the voice page: a section's button changes only that section and shows its tab
   check(await pg.evaluate(() => { const v = document.querySelector('.m-voice-card .m-vbtns').getBoundingClientRect(), s = $('m-vsets').getBoundingClientRect(); return v.left >= s.right; }), 'voice: the randomisers sit on the right');
   {
-    const snap = () => pg.evaluate(() => Object.fromEntries(DR1.map((n) => [n, values[PAR[n]]])));
+    const snap = () => pg.evaluate(() => Object.fromEntries(DR1.map((n) => [n, ws[n]])));
     const was = await snap();
     await pg.click('.m-voice-card [data-vrand="filter"]');
     const now = await snap(), filt = VP_FILTER;
@@ -155,7 +155,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('[data-m-tab="voice"]');
   r = await box('#m-voice-tone .m-vtrack');
   await pg.mouse.move(r.x + r.width / 2, r.y + r.height / 2); await pg.mouse.down(); await pg.waitForTimeout(650); await pg.mouse.up();
-  check(await pg.isVisible('#m-fs') && await pg.textContent('#m-fs-name') === 'note', 'holding a fader opens its sequencer');
+  check(await pg.isVisible('#m-fs') && await pg.textContent('#m-fs-name') === 'freq', 'holding a fader opens its sequencer');
   r = await box('#m-fs-rand'); await pg.click('#m-fs-rand');
   // slide: with the slide button on, a drag along the first three steps slides them; a slide step glides to the next
   // step's offset over the whole step
@@ -169,7 +169,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   check(await pg.evaluate(() => { const f = fsF, q = f.seq; fsStep(f, 1, 125); const g = f.glide, ok = g && g.from === q.vals[1] && g.to === q.vals[2] && g.ms === 125; fsRelease(f); return ok; }), 'a slide step glides to the next step over the whole step');
   await pg.click('#m-fs-slide');
   await pg.click('#m-fs-close');
-  check(await pg.evaluate(() => mFaders.find((f) => f.key === 'm-voice-tone:note').seq.vals.some((v) => v)), 'randomise fills its steps');
+  check(await pg.evaluate(() => mFaders.find((f) => f.key === 'm-voice-tone:freq').seq.vals.some((v) => v)), 'randomise fills its steps');
   // the note grid: the bottom of a step's gate rests it; a tap on its A accents it
   await pg.click('[data-m-tab="seq"]');
   r = await box('.m-gstep >> nth=1');
@@ -283,16 +283,16 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   check(await pg.evaluate(() => !$('m-prefs').hidden), 'a tap on the title opens the prefs');
   await pg.click('#m-lcd [data-lcd="2"]');
   check(await pg.evaluate(() => document.querySelectorAll('#m-lcd [data-lcd]').length === 5 && getComputedStyle($('m')).backgroundColor === 'rgb(42, 19, 0)'
-    && localStorage.getItem('elixir-synth-lcd') === 'amber'), 'an LCD look changes the screen colours and is kept');
+    && localStorage.getItem('elixir-werkstatt-lcd') === 'amber'), 'an LCD look changes the screen colours and is kept');
   await pg.click('#m-lcd [data-lcd="0"]');
   await pg.click('#m-prefs-close');
   check(await pg.evaluate(() => $('m-prefs').hidden), 'done closes the prefs');
   check(await pg.evaluate(() => tempo === 128 && seq.root === 9), 'a built-in preset loads (at the next bar)');
   await pg.click('#m-psave');
-  check(await pg.evaluate(() => JSON.parse(localStorage.getItem('elixir-synth-presets')).length === 1), 'save new keeps a preset in its own storage');
+  check(await pg.evaluate(() => JSON.parse(localStorage.getItem('elixir-werkstatt-presets')).length === 1), 'save new keeps a preset in its own storage');
   await pg.click('[data-m-tab="main"]');
   await pg.click('#m-msave');
-  check(await pg.evaluate(() => JSON.parse(localStorage.getItem('elixir-synth-presets')).length === 2 && $('m-mcur').textContent === pCur.name && /^Saved as/.test($('m-mnote').textContent) && !$('m-mover').disabled), 'main: save new saves a preset and names it');
+  check(await pg.evaluate(() => JSON.parse(localStorage.getItem('elixir-werkstatt-presets')).length === 2 && $('m-mcur').textContent === pCur.name && /^Saved as/.test($('m-mnote').textContent) && !$('m-mover').disabled), 'main: save new saves a preset and names it');
   // record: a take downloads as a WAV
   await pg.keyboard.press('r'); await pg.waitForTimeout(1000);
   check(await pg.evaluate(() => !$('m-rec-t').hidden && /rec \d:\d\d/i.test($('m-rec-t').textContent)), 'R records, and the title corner shows it');

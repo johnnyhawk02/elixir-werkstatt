@@ -1,6 +1,6 @@
 {
-  "name": "Elixir Synth",
-  "short_name": "Elixir Synth",
+  "name": "Elixir Werkstatt",
+  "short_name": "Elixir Werkstatt",
   "description": "A landscape mono synth, playing the drum 1 voice of a port of the Erica Synths LXR-02 engine.",
   "start_url": "./",
   "scope": "./",

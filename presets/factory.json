@@ -422,6 +422,16 @@
       0.1
      ]
     }
+   },
+   "ws": {
+    "wave": 0,
+    "cutoff": 38,
+    "reso": 80,
+    "vcfMod": 60,
+    "vcfSrc": 1,
+    "decay": 30,
+    "drive": 60,
+    "glide": 20
    }
   },
   {
@@ -819,7 +829,16 @@
     "release": 120,
     "makeup": 0
    },
-   "fseqs": {}
+   "fseqs": {},
+   "ws": {
+    "wave": 1,
+    "pwm": 0,
+    "cutoff": 30,
+    "reso": 20,
+    "vcfMod": 30,
+    "decay": 55,
+    "note": 24
+   }
   },
   {
    "v": 1,
@@ -1216,7 +1235,17 @@
     "release": 120,
     "makeup": 0
    },
-   "fseqs": {}
+   "fseqs": {},
+   "ws": {
+    "wave": 1,
+    "pwm": 60,
+    "cutoff": 60,
+    "reso": 35,
+    "vcoMod": 12,
+    "vcoSrc": 1,
+    "vcfMod": 40,
+    "decay": 40
+   }
   },
   {
    "v": 1,
@@ -1639,6 +1668,14 @@
       0
      ]
     }
+   },
+   "ws": {
+    "wave": 1,
+    "pwm": 0,
+    "cutoff": 50,
+    "reso": 40,
+    "vcfMod": 50,
+    "decay": 28
    }
   },
   {
@@ -2036,7 +2073,17 @@
     "release": 120,
     "makeup": 0
    },
-   "fseqs": {}
+   "fseqs": {},
+   "ws": {
+    "wave": 0,
+    "cutoff": 45,
+    "reso": 60,
+    "vcoMod": 35,
+    "vcoSrc": 1,
+    "vcfMod": 70,
+    "decay": 25,
+    "drive": 70
+   }
   },
   {
    "v": 1,
@@ -2433,7 +2480,17 @@
     "release": 120,
     "makeup": 0
    },
-   "fseqs": {}
+   "fseqs": {},
+   "ws": {
+    "wave": 0,
+    "cutoff": 40,
+    "reso": 55,
+    "vcfMod": 35,
+    "vcfSrc": 0,
+    "lfoRate": 25,
+    "vcaMode": 1,
+    "volume": 60
+   }
   },
   {
    "v": 1,
@@ -2830,7 +2887,21 @@
     "release": 120,
     "makeup": 0
    },
-   "fseqs": {}
+   "fseqs": {},
+   "ws": {
+    "wave": 1,
+    "pwm": 40,
+    "cutoff": 55,
+    "reso": 50,
+    "vcoMod": 6,
+    "vcoSrc": 0,
+    "lfoRate": 55,
+    "sustain": 1,
+    "attack": 10,
+    "decay": 50,
+    "glide": 25,
+    "note": 48
+   }
   },
   {
    "v": 1,
@@ -3227,7 +3298,15 @@
     "release": 120,
     "makeup": 0
    },
-   "fseqs": {}
+   "fseqs": {},
+   "ws": {
+    "wave": 0,
+    "cutoff": 50,
+    "reso": 30,
+    "vcfMod": 55,
+    "decay": 15,
+    "drive": 50
+   }
   }
  ]
 }

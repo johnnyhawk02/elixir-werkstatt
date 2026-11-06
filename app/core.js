@@ -62,28 +62,35 @@ function spec(par) {
 const parGet = (par) => (spec(par).idx ? Math.max(0, TARGETS.indexOf(values[par])) : values[par]);
 const parSet = (par, x) => setValue(par, spec(par).idx ? TARGETS[x] : x);
 
-// ---- the perf macros, offsets sent to the engine on top of the sound (the sound keeps its own values): decay, filter
-// and fm from -100% (down to 0) through 0 (as the sound) to +100% (all the way up); pitch moves every note by up to two
-// octaves either way in hundredths of a semitone (between semitones only the pitch moves; on one, the note is exact) ----
-const MACROS = { decay: PAR.VELOD1, filter: PAR.FILTER_FREQ_1, fm: PAR.FMAMNT1 };
+// ---- the voice: the Werkstatt-01 (werkstatt.js), its knobs and switches by key (LXR.WS_PARAMS). The LXR parameters
+// above are still the engine's, for its FX bus (the echo); its own voices are silent ----
+const WS_SPEC = Object.fromEntries(LXR.WS_PARAMS.map(([key, label, sec, min, max, dflt, show]) => [key, { key, label, sec, min, max, dflt, show }]));
+const ws = { ...LXR.WS_DEFAULTS };
+function setWs(key, v) { ws[key] = v; sendWs(); }
+
+// ---- the perf macros, offsets on top of the sound (the sound keeps its own values): decay, filter and mod from -100%
+// (down to the knob's bottom) through 0 (as the sound) to +100% (all the way up), on the Werkstatt's decay, cutoff and
+// vco mod; pitch moves every note by up to two octaves either way in hundredths of a semitone ----
+const MACROS = { decay: 'decay', filter: 'cutoff', fm: 'vcoMod' };
 const MACRO0 = { pitch: 0, decay: 100, filter: 100, fm: 100 };
 const macro = { ...MACRO0 };
 const macroOf = Object.fromEntries(Object.entries(MACROS).map(([m, p]) => [p, m]));
-function eff(par, v) {
-  const m = macroOf[par];
+function wsEff(key) {
+  const m = macroOf[key], v = ws[key];
   if (!m || macro[m] === 100) return v;
-  const k = (macro[m] - 100) / 100;
-  return Math.round(k > 0 ? v + (127 - v) * k : v * (1 + k));
+  const { min, max } = WS_SPEC[key], k = (macro[m] - 100) / 100;
+  return k > 0 ? v + (max - v) * k : min + (v - min) * (1 + k);
 }
-const effValues = () => Array.from(values, (v, par) => eff(par, v));
+function sendWs() { send({ type: 'ws', p: Object.fromEntries(Object.keys(ws).map((k) => [k, wsEff(k)])) }); }
+const effValues = () => Array.from(values);
 function setMacro(m, v) {
   macro[m] = v;
   if (m === 'pitch') send({ type: 'pitch', v });
-  else send({ type: 'param', par: MACROS[m], value: eff(MACROS[m], values[MACROS[m]]) });
+  else sendWs();
 }
 function setValue(par, v) {
   values[par] = v;
-  send({ type: 'param', par, value: eff(par, v) });
+  send({ type: 'param', par, value: v });
   // the LFO always runs on drum 1
   if (par === PAR.TARGET_LFO1) send({ type: 'param', par: PAR.VOICE_LFO1, value: 1 });
 }
@@ -100,7 +107,7 @@ const OCT_MIN = -2, OCT_MAX = 2;
 // the morph: off (0), or which voice parameter each step's morph value (st.m, 0 to 100) takes from the sound's own value
 // up to the top, gliding between steps on a slide (so the timbre moves with the pitch); off, the steps' values are kept
 // but nothing is heard of them
-const MORPH_DESTS = [['cutoff', 'FILTER_FREQ_1'], ['pwm', 'PWM_1'], ['fm amt', 'FMAMNT1'], ['fm freq', 'FM_FREQ1'], ['reso', 'RESO_1'], ['flt drive', 'FILTER_DRIVE_1']];
+const MORPH_DESTS = [['cutoff', 'cutoff'], ['pwm', 'pwm'], ['vco mod', 'vcoMod'], ['vcf mod', 'vcfMod'], ['reso', 'reso'], ['drive', 'drive']];
 const SEQ0 = { root: 0, scale: 1, oct: 0, density: 100, len: 64, accent: 6, glide: 35, vel: 100, algo: 8, morph: 0,
   steps: [[0, 4, 1, 0], [0, 2, 0, 0], [7, 3, 0, 1], [8, 4, 0, 0], [0, 0, 0, 0], [3, 3, 1, 0], [0, 2, 0, 0], [5, 4, 0, 1],
     [4, 4, 0, 0], [0, 2, 1, 0], [0, 0, 0, 0], [7, 3, 0, 0], [6, 4, 1, 1], [7, 4, 0, 0], [2, 2, 0, 0], [0, 3, 0, 0]].map(([d, gate, acc, slide]) => ({ d, gate, acc: !!acc, slide: !!slide })) };
@@ -111,7 +118,7 @@ SEQ0.steps = fillPages(SEQ0.steps);
 const seq = structuredClone(SEQ0);
 // a degree's semitones above the root's C, moved by the octave buttons (the note heard: the voice's coarse, plus this, plus pitch)
 const degSemis = (d, sc = seq.scale, root = seq.root, oct = seq.oct) => { const s = SCALES[sc][1]; return root + 12 * oct + s[d % s.length] + 12 * Math.floor(d / s.length); };
-const stepNote = (st) => values[PAR.COARSE1] + degSemis(st.d);
+const stepNote = (st) => ws.note + degSemis(st.d);
 let playing = false, tempo = 120;
 // density: each step has a weight, w, 0 to 99 (the randomisers deal them out at random); as the density comes down
 // from 100, the steps weighted under 100 - density drop out, the lowest first, until at 0 even a 99 is gone. A step
@@ -122,12 +129,12 @@ const stepWeight = (st, s) => (Number.isFinite(st.w) ? st.w : Math.round(99 - DE
 const thinned = () => seq.steps.map((st, s) => s < seq.len && st.gate > 0 && stepWeight(st, s) < 100 - seq.density);
 // the metronome (on the main page): a click on each beat while playing, high on the bar's first; a setting of this
 // browser's, not of the preset, and not in a recording
-const METRO_KEY = 'elixir-synth-metro';
+const METRO_KEY = 'elixir-werkstatt-metro';
 let metroOn = store.get(METRO_KEY) === '1';
 function sendSeq() {
   const thin = thinned();
   const md = MORPH_DESTS[seq.morph - 1];
-  send({ type: 'seq', playing, metro: metroOn, len: seq.len, bpm: tempo, vel: seq.vel, glide: seq.glide / 100, accentDb: seq.accent, morph: md ? PAR[md[1]] : null,
+  send({ type: 'seq', playing, metro: metroOn, len: seq.len, bpm: tempo, vel: seq.vel, glide: seq.glide / 100, accentDb: seq.accent, morph: md ? md[1] : null,
     steps: seq.steps.map((st, s) => ({ n: degSemis(st.d), gate: thin[s] ? 0 : st.gate, acc: st.acc, slide: st.slide, m: (st.m || 0) / 100 })) });
 }
 
@@ -185,7 +192,7 @@ function send(m) { if (barSync) m = { type: 'atBar', m }; if (!post(m)) pending.
 // 'bigger audio buffer' pref) was the default for a while (v84 to v90), and on a phone the timing went to pieces with
 // it, chunks of audio skipped (Chrome may not give the audio thread its real-time priority then), so it's only an
 // option now
-const BIGBUF_KEY = 'elixir-synth-bigbuf';
+const BIGBUF_KEY = 'elixir-werkstatt-bigbuf';
 async function startAudio() {
   if (ctx) { if (ctx.state === 'suspended') await ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: store.get(BIGBUF_KEY) === '1' ? 'playback' : 'interactive' });
@@ -234,6 +241,7 @@ async function restartAudio() {
 // everything, to a new audio thread or for a preset
 function sendAll() {
   send({ type: 'kit', values: effValues() });
+  sendWs();
   send({ type: 'pitch', v: macro.pitch });
   send({ type: 'delay', pos: delayPos });
   sendMix(); sendSeq();
@@ -248,7 +256,7 @@ const whenHeard = (fn) => setTimeout(fn, ctx && ctx.outputLatency ? ctx.outputLa
 const PRESET_V = 1;
 let fseqSnapshot = () => ({}), fseqUse = () => {};
 function snapshot() {
-  return { v: PRESET_V, kit: Array.from(values), macro: { ...macro }, tempo, seq: structuredClone(seq), fx: { ...fx }, dpos: delayPos,
+  return { v: PRESET_V, kit: Array.from(values), ws: { ...ws }, macro: { ...macro }, tempo, seq: structuredClone(seq), fx: { ...fx }, dpos: delayPos,
     dist: structuredClone(dist), master: { ...master }, fseqs: fseqSnapshot() };
 }
 const drawHooks = [];
@@ -257,6 +265,8 @@ function useSnapshot(p, keepTempo) {
   const kit = Uint8Array.from(p.kit);
   values.set(kit.subarray(0, values.length));
   values[PAR.VOICE_LFO1] = 1;
+  // (a preset from before the Werkstatt has no ws: it plays on the Werkstatt's own default sound)
+  Object.assign(ws, LXR.WS_DEFAULTS, p.ws || {});
   Object.assign(macro, MACRO0, p.macro);
   if (!keepTempo && p.tempo) tempo = p.tempo;
   Object.assign(seq, structuredClone(SEQ0), structuredClone(p.seq || {}));

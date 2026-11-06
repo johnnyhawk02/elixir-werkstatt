@@ -1,14 +1,54 @@
-# Elixir Synth
+# Elixir Werkstatt
 
-A mono synth in the browser, laid out landscape as the prototype of a VST3 plugin. **Play it: https://johnnyhawk02.github.io/elixir-synth/**
+A mono synth in the browser: [Elixir Synth](https://github.com/johnnyhawk02/elixir-synth) with its LXR drum 1 voice
+replaced by a component-level model of the **Moog Werkstatt-01** voice. **Play it (once GitHub Pages is on for this
+repo): https://johnnyhawk02.github.io/elixir-werkstatt/**
 
-Elixir Synth is built from [Elixir Mobile](https://github.com/johnnyhawk02/elixir-mobile). It keeps one voice of its
-engine, the LXR drum 1 voice (DR1), and plays it as a synth: a note sequencer instead of the drum patterns, and
-the same LCD screen. It installs as an app and works offline.
+Everything around the voice is Elixir Synth's: the note sequencer, the perf dials, the fader sequencers, the echo,
+reverb and ring mod, the distortion and compressor, presets and the recorder. The echo, distortion, ring mod and reverb
+are still the JavaScript port of the Erica Synths LXR-02 firmware's FX code
+([erica-synths/lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app), GPL-3.0, commit a43cd4f). Elixir
+Werkstatt is unofficial: it is not made, approved or endorsed by Moog or Erica Synths.
 
-The engine is a JavaScript port of the drum voices and FX bus in the Erica Synths LXR-02 firmware
-([erica-synths/lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app), GPL-3.0, commit a43cd4f).
-Elixir Synth is unofficial: it is not made, approved or endorsed by Erica Synths.
+## The Werkstatt voice
+
+`werkstatt.js` models the Werkstatt-01's signal path block by block. The circuit blocks come from
+[dfam-model](https://github.com/johnnyhawk02/dfam-model) (`js/dfam.js`), which models them from the Werkstatt-01
+schematic (Moog BRD-10-011-1111):
+
+- **VCO**: a matched-pair expo converter (with bulk emitter resistance, so the top end runs a touch flat) driving a
+  ramp core: the current charges a capacitor, a comparator and switch reset it (the reset time is modelled too).
+  The saw is the ramp; the pulse is a second comparator against the PWM voltage. Both are band-limited (polyBLEP).
+- **VCF**: the four-stage transistor ladder, each stage a tanh differential pair, with resonance feedback, solved per
+  sample by the trapezoidal rule and Newton's method. It self-oscillates at the top of RES.
+- **EG**: the timing capacitor charges through the attack pot and a diode until the comparator trips at the peak, then
+  runs down through the decay pot. Sustain on holds the peak while the gate is held.
+- **VCA**: an LM13700 OTA, Iout = Iabc tanh(Vin / 2Vt), with its control feedthrough. The VCA switch picks the EG or
+  on (a drone).
+- **LFO**: triangle or square, 0.1 Hz to 100 Hz.
+- **Glide**: an RC lag on the pitch CV.
+
+The voice runs at twice the engine's 44 140 Hz and is decimated with a windowed-sinc filter. Component values that the
+schematic doesn't settle are estimates, in `WS_CIRCUIT` (SI units). Two things are assumptions to check against a real
+Werkstatt: the VCO as a ramp core (the panel's saw / pulse switch) and the panel ranges (cutoff 20 Hz to 20 kHz, LFO
+0.1 to 100 Hz, VCO MOD up to 3 octaves, VCF MOD up to 7). The **drive** knob (the level into the ladder) isn't on the
+Werkstatt's panel.
+
+The voice page has the Werkstatt's controls in four sections:
+
+| section | controls |
+|---|---|
+| tone (VCO) | freq (the base note), fine, wave (saw / pulse), pwm, vco mod, vco src (lfo / eg), glide |
+| shape (EG, VCA) | attack, decay, sustain (off / on), vca (eg / on), volume |
+| filter (VCF) | cutoff, reso, vcf mod, vcf src (lfo / eg), polarity (+ / −), drive |
+| mod (LFO) | lfo rate, lfo wave (tri / square) |
+
+The sequencer's notes go on top of the base note; accents turn unaccented notes down after the voice, as before (the
+Werkstatt has no velocity). A gate opens the EG; a slide moves the pitch without a new gate. The morph can move cutoff,
+pwm, vco mod, vcf mod, reso or drive.
+
+Presets keep the voice as `ws` (its knobs by name). A preset from Elixir Synth loads with its sequence and effects and
+the Werkstatt's default sound. Presets here are kept under their own browser key, apart from Elixir Synth's.
 
 ## The screen
 
@@ -26,7 +66,7 @@ no play or record buttons: R starts and stops a recording.
   | CC | dial | | CC | dial |
   |---|---|---|---|---|
   | 1 | tempo | | 5 | reso |
-  | 2 | pitch (two octaves either way) | | 6 | fm |
+  | 2 | pitch (two octaves either way) | | 6 | mod (the vco mod) |
   | 3 | decay | | 7 | echo send |
   | 4 | filter | | 8 | reverb send |
 
@@ -41,7 +81,7 @@ no play or record buttons: R starts and stops a recording.
   glide time, and random, alter (the page shown) and undo. The algo fader picks how random writes a page: 1 dice,
   2 acid, 3 euclid, 4 arp, 5 walk, 6 motif, 7 groove, 8 phrase, 9 pure, 10 patternz (random bits of a bank of acid patterns, looped, moved up or down the scale, sometimes backwards, and put in the key; page 2 is page 1 changed a little, page 3 is page 1 moved up, page 4 a new cut-up). Presets from before there were pages play their one page
   on all four.
-- **VOICE**: every DR1 parameter, on four tabs: tone, shape, filter, mod.
+- **VOICE**: every Werkstatt control, on two tabs: tone + shape, filter + mod (see above).
 - **FX**: the echo (tempo-synced on musical lengths, ping pong, tone, feedback, width), the reverb (send, predelay,
   decay, tone, early reflections; at the top its decay holds) and the ring mod, with random, alter and undo.
 - **MSTR**: distortion (tube, fold or rat) on the whole mix, then the compressor.
@@ -54,7 +94,11 @@ randomise, on or off. Presets keep them.
 
 **R** records the finished mix from the moment you press it (REC and the time show under the title) and downloads a WAV when you press it again.
 
-## The engine
+## The LXR engine (the effects)
+
+The LXR engine still runs, for its FX bus (the echo): it renders none of its own voices, and the Werkstatt's output goes
+in where its drum 1 would be. The notes below are from Elixir Synth; the drum 1 parts (`setDrumPitch()`, the declick)
+are no longer used by the voice.
 
 `lxr.js` follows the firmware's C line by line. Elixir Mobile's `verify.mjs` compares it sample for sample with the
 firmware's own code built for the Cortex-M7 and run under qemu (see `ref/`). The engine runs as it does there, in
@@ -85,18 +129,19 @@ sample with the firmware, since the firmware never builds it.
 | `index.html` | the whole app in one file, built by `build.mjs` |
 | `index.src.html` | the page's markup |
 | `app/` | the page's code: `style.css`, `player.js` (the audio thread), then `core` (state, audio, shared helpers), `ui` (pages, faders), `perf`, `voice`, `fx`, `noteseq`, `fseq`, `random`, `presets`, `record`, `lcd` (screen colours), `pwa` |
-| `lxr.js`, `lxr-tables.js`, `lxr-ui-data.js`, `lxr-clicks.js` | the engine |
+| `werkstatt.js` | the Werkstatt-01 voice |
+| `lxr.js`, `lxr-tables.js`, `lxr-ui-data.js`, `lxr-clicks.js` | the LXR engine (its FX bus) |
 | `presets/` | the built-in presets, in the format the presets page exports |
 | `patterns/`, `tools/import-patternz.mjs` | the patterns patternz random cuts up, and the script that reads them from `.pat` and `.ph2seq` files |
 | `sw.js`, `manifest.webmanifest`, `icons/` | the offline app |
-| `test/` | `engine.mjs` (sound, in Node), `sound.mjs` (every preset's audio hashed, so a refactor can't change the sound) and `smoke.mjs` (the page, in Chromium at three window sizes) |
+| `test/` | `engine.mjs` (sound, in Node: tuning, the sequencer, the reverb, the presets' levels), `sound.mjs` (every preset's audio hashed, so a refactor can't change the sound) and `smoke.mjs` (the page, in Chromium at three window sizes) |
 | `verify.mjs`, `ref/` | the sample-for-sample comparison with the firmware |
 
 ## Build and test
 
 ```sh
 node build.mjs               # rebuild index.html
-node test/engine.mjs         # bit-exact semitones, cents, the sequencer, the presets' levels
+node test/engine.mjs         # tuning, cents, the sequencer, the reverb, the presets' levels
 node test/sound.mjs          # the sound unchanged, bit for bit (--write records it, only when a change is meant)
 node test/smoke.mjs          # the page at 1000 x 600, 1600 x 900 and 700 x 520 (needs Playwright)
 ```

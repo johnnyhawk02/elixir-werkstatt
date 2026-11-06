@@ -8,7 +8,7 @@ const LCD_LOOKS = [
   ['grey', { panel: '#c9cdc2', ink: '#20242a', 'panel-rgb': '201 205 194', 'ink-rgb': '32 36 42', 'light-rgb': '240 244 236', 'shade-rgb': '70 75 70', glow: 0.3 }],
   ['red', { panel: '#1e0306', ink: '#ff4a3d', 'panel-rgb': '30 3 6', 'ink-rgb': '255 74 61', 'light-rgb': '130 20 20', 'shade-rgb': '0 0 0', glow: 1 }],
 ];
-const LCD_KEY = 'elixir-synth-lcd';
+const LCD_KEY = 'elixir-werkstatt-lcd';
 let lcdLook = 0;
 function setLcd(i) {
   lcdLook = LCD_LOOKS[i] ? i : 0;

@@ -15,7 +15,10 @@ const engine = [read('lxr-tables.js'), read('lxr-ui-data.js'), read('lxr-clicks.
 const names = ['LxrEngine', 'PAR', 'CC', 'CC2', 'BLOCK', 'REAL_FS', 'PARAM_DTYPES', 'MOD_TARGETS', 'MOD_TARGET_VOICE_RANGES', 'VOICE_PAGES',
   'INIT_KIT', 'OSC_WAVE_NAMES', 'FILTER_TYPE_NAMES', 'LFO_WAVE_NAMES', 'LFO_SYNC_NAMES', 'MIXER_ROUTING_FX_BUS', 'FX_DELAY', 'FX_DISTORTION',
   'FX_RING', 'FX_REVERB', 'FxBus', 'Rng', 'DIST_NAMES', 'DELAY_NAMES', 'EXTRA_CLICK_NAMES'];
-const bundle = `const LXR = (() => {\n${engine}\nreturn { ${names.join(', ')} };\n})();\n`;
+// the Werkstatt-01 voice (werkstatt.js), in its own scope, its names added to LXR's
+const wsNames = ['Werkstatt', 'WS_PARAMS', 'WS_DEFAULTS', 'WS_CIRCUIT', 'cutoffHz', 'lfoHz'];
+const werk = `const WS = (() => {\n${strip(read('werkstatt.js'))}\nreturn { ${wsNames.join(', ')} };\n})();\n`;
+const bundle = `const LXR = (() => {\n${engine}\n${werk}\nreturn { ${names.join(', ')}, ...WS };\n})();\n`;
 const outArg = process.argv.indexOf('--out');
 const outFile = outArg > 0 ? process.argv[outArg + 1] : null;
 

@@ -1,4 +1,4 @@
-// The audio thread: runs the engine's drum 1 voice as a mono synth, the note sequencer, the echo, reverb and ring mod
+// The audio thread: runs the Werkstatt-01 voice (werkstatt.js) as a mono synth, the note sequencer, the echo, reverb and ring mod
 // sends, the distortion and compressor on the mix and the recorder, and resamples the engine's rate to the output's.
 // Used inside the AudioWorklet (or a ScriptProcessor fallback).
 // the tempo-synced echo: 1/128 of a bar at 0, a whole bar at 1, evenly in octaves between
@@ -12,9 +12,14 @@ class Player {
   constructor(outRate) {
     this.e = new LXR.LxrEngine();
     this.e.loadInitKit();
-    // only drum 1 is heard: the other five voices are not rendered (their random numbers are still drawn, so the sound
-    // is the same to the bit)
-    this.e.voices = 1;
+    // the voice is the Werkstatt (werkstatt.js), in place of the LXR's drum 1: the engine renders none of its own voices
+    // and is kept for its FX bus (the echo), which takes the Werkstatt's output as drum 1's, panned centre
+    this.e.voices = 0;
+    this.e.drums[0].triggeredPanL = this.e.drums[0].triggeredPanR = Math.SQRT1_2;
+    this.w = new LXR.Werkstatt(LXR.REAL_FS);
+    // ws: the Werkstatt's knobs as the page set them (the morph moves one of them from here)
+    this.ws = { ...LXR.WS_DEFAULTS };
+    this.gateOpen = false;
     this.ratio = LXR.REAL_FS / outRate;
     this.A = [new Float32Array(64), new Float32Array(64)];
     this.B = [new Float32Array(64), new Float32Array(64)];
@@ -30,10 +35,7 @@ class Player {
     this.note = 0; this.cur = 0; this.slideFrom = null; this.slideAt = 0; this.slideLen = 1; this.cutAt = Infinity;
     // the voice's gain: the accent (an unaccented note is turned down by the accent amount) times the gate
     this.gain = 1; this.gainTo = 1; this.gate = 1;
-    // the declick is the engine's: it's told the voice's last two samples as heard (after the gain), and a retrigger
-    // (retrig) starts at its new gain straight away
-    this.heard = { h1: 0, h0: 0, g: 1 }; this.retrig = false;
-    // the morph (off unless the sequence names a parameter): each step's morph value (0..1) takes that parameter from
+    // the morph (off unless the sequence names a Werkstatt knob): each step's morph value (0..1) takes that knob from
     // the sound's own value (0) to the top (1), set as the step triggers and glided over the slide on a slide into it.
     // Off, the parameter is put back and nothing here touches the voice
     this.morphPar = null; this.mCur = 0; this.mFrom = null; this.mTo = 0; this.mSet = null;
@@ -62,8 +64,9 @@ class Player {
     this._render(this.A); this._render(this.B);
   }
   msg(m) {
-    if (m.type === 'param') { this.e.setParam(m.par, m.value); if (m.par === this.morphPar) { this.mSet = null; this.setMorph(this.mCur); } }
-    else if (m.type === 'kit') { this.e.loadKit(m.values); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
+    if (m.type === 'param') this.e.setParam(m.par, m.value);
+    else if (m.type === 'kit') this.e.loadKit(m.values);
+    else if (m.type === 'ws') { Object.assign(this.ws, m.p); this.w.set(this.ws); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
     else if (m.type === 'pitch') { this.pitch = m.v; this.setPitch(this.cur); }
     else if (m.type === 'note') this.play(m.n, m.acc, m.gate, false, m.m || 0);
     else if (m.type === 'delay') this.delayPos = m.pos;
@@ -90,7 +93,7 @@ class Player {
       this.accGain = Math.pow(10, -m.accentDb / 20);
       const mp = m.morph === undefined ? null : m.morph;
       if (mp !== this.morphPar) {
-        if (this.morphPar !== null) this.e.setParam(this.morphPar, this.e.activeParameters[this.morphPar]);
+        if (this.morphPar !== null) this.w.set({ [this.morphPar]: this.ws[this.morphPar] });
         this.morphPar = mp; this.mCur = 0; this.mFrom = null; this.mSet = null;
       }
       if (m.playing && !this.playing) { this.step = 0; this.pos = 0; this.bar = 0; this.toNext = 0; this.cutAt = Infinity; this.slideFrom = null; this.mFrom = null; }
@@ -109,35 +112,30 @@ class Player {
     const q = this.atBar; this.atBar = [];
     for (const m of q) this.msg(m.type === 'seq' ? { ...m, playing: this.playing } : m);
   }
-  // the voice to semitone n (from middle C) plus pitch, without a retrigger: a whole note is set exactly as a trigger sets it
-  setPitch(n) { this.e.setDrumPitch(0, Math.max(0, Math.min(127, 60 + n + this.pitch))); }
-  // a note: a trigger on its whole semitone, then (only if pitch puts it between semitones) the rest of the way.
-  // slide: glide there from the note sounding instead, without a retrigger. mv: the step's morph value
+  // the voice to semitone n (from the sound's base note) plus pitch, without a new gate
+  setPitch(n) { this.w.setOffset(n + this.pitch); }
+  // a note: the pitch, and a new gate for the EG (it starts from wherever its capacitor is, as on the hardware).
+  // slide: glide there from the note sounding instead, without a new gate. mv: the step's morph value
   play(n, acc, gate, slide, mv = 0) {
     if (slide) { this.slideFrom = this.cur; this.slideAt = 0; if (this.morphPar !== null) { this.mFrom = this.mCur; this.mTo = mv; } }
     else {
       this.slideFrom = null;
       if (this.morphPar !== null) { this.mFrom = null; this.mCur = mv; this.setMorph(mv); }
-      const p = Math.max(0, Math.min(127, 60 + n + this.pitch)), base = Math.floor(p);
-      this.gainTo = acc ? 1 : this.accGain; this.gate = 1; this.cur = n;
-      this.heard.g = this.gainTo;
-      this.e.trigger(0, acc ? 127 : this.vel, base, { ...this.heard });
-      this.retrig = true;
-      if (p !== base) this.e.setDrumPitch(0, p);
+      this.gainTo = acc ? 1 : this.accGain; this.cur = n;
+      this.w.noteOn(n + this.pitch); this.gateOpen = true;
     }
     this.note = n;
     const len = LXR.REAL_FS * 60 / this.bpm / 4;
     this.slideLen = Math.max(64, this.glide * len);
     this.cutAt = gate >= GATE_RING ? Infinity : this.clock + gate / 4 * len;
   }
-  // the morph parameter at k (0..1) of the way from the sound's own value to the top; at 0 exactly the sound's value
+  // the morph knob at k (0..1) of the way from the sound's own value to the top; at 0 exactly the sound's value
   setMorph(k) {
     const par = this.morphPar;
     if (par === null || k === this.mSet) return;
     this.mSet = k;
-    const b = this.e.activeParameters[par];
-    if (!k) this.e.setParam(par, b);
-    else this.e.setParamFloat(par, (b + (127 - b) * k) / 127);
+    const b = this.ws[par], top = LXR.WS_PARAMS.find((q) => q[0] === par)[4];
+    this.w.set({ [par]: b + (top - b) * k });
   }
   // step s (of the sequence's len steps): its note, slid into from the step before when that one slides and both play; a step that slides on
   // keeps its gate open into the next (the sequence wraps at its length)
@@ -174,20 +172,20 @@ class Player {
       if (this.mFrom !== null) { this.mCur = this.mFrom + (this.mTo - this.mFrom) * k; this.setMorph(this.mCur); }
       if (k >= 1) { this.slideFrom = null; this.cur = this.note; this.mFrom = null; }
     }
-    // the gate closes: the voice fades out over three blocks (about 4 ms)
-    if (this.clock >= this.cutAt) this.gate = Math.max(0, this.gate - 0.34);
+    // the gate closes: the EG lets go (it runs down at its decay, or holds on with the VCA switched to on)
+    if (this.clock >= this.cutAt && this.gateOpen) { this.w.noteOff(); this.gateOpen = false; }
     this.clock += 64;
-    const out = this.e.renderBlock(), e = this.e, v = e.drums[0];
+    // the engine runs for its FX bus; the voice is the Werkstatt's, put where the engine's drum 1 would be heard
+    this.e.renderBlock();
+    const e = this.e, v = e.drums[0];
+    this.w.render(e.voiceOut[0]);
     const [L, R] = dst;
     // the fx returns go into W: the mix itself, or (ducking) a bus of their own
     const D = this.duck, ducking = D.on;
     const [WL, WR] = ducking ? this.W : dst;
-    // the voice, its gain ramped over the block; a retrigger starts at its new gain straight away, the engine's declick
-    // taking up the step (a ramp's corners would be heard on a dull sound)
-    const g1 = this.gainTo * this.gate, g0 = this.retrig ? g1 : this.gain, dg = (g1 - g0) / 64;
+    // the voice, its gain (the accent) ramped over the block
+    const g1 = this.gainTo * this.gate, g0 = this.gain, dg = (g1 - g0) / 64;
     const o = e.voiceOut[0];
-    this.retrig = false;
-    this.heard.h1 = o[62] * (g0 + dg * 62); this.heard.h0 = o[63] * (g0 + dg * 63);
     const isDelay = e.fx.fxType === LXR.FX_DELAY;
     e.fx.forceWet = isDelay;
     e.fx.setDelaySync(isDelay ? delaySamples(this.delayPos, this.bpm) : null);
