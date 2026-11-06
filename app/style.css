@@ -235,7 +235,12 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-mpreset .m-note { line-height: 1.2; }
 
 /* ---- seq: the page buttons and tools, the sixteen steps in one line, the gate (or morph) lane, then the faders ---- */
-.m-seqpage { display: grid; grid-template-rows: auto minmax(0, 1.6fr) minmax(0, 0.9fr) 134px; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px 10px; min-height: 0; padding: 6px 2px; }
+/* the lanes: gate a, gate b (shorter), pitch a, pitch b, and the morph lane when it's shown; each with its name on the left */
+.m-lane { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 6px; min-height: 0; }
+.m-lane[hidden] { display: none; }
+.m-lane > b { align-self: center; font-weight: 400; text-transform: uppercase; font-size: min(var(--fs-xs), 16px); line-height: 1; }
+.m-seqpage.morph { grid-template-rows: auto minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr) 104px; }
+.m-seqpage { display: grid; grid-template-rows: auto minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) 110px; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px 10px; min-height: 0; padding: 6px 2px; }
 .m-seqpage > * { grid-column: 1; }
 /* random, alter and undo: a column down the right, as on the voice and fx pages */
 .m-seqpage > .m-seqbtns { grid-column: 2; grid-row: 1 / -1; }
@@ -276,7 +281,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-step.thin .m-sn, .m-step.thin .m-sbar { opacity: .35; }
 .m-sm b:hover { background: var(--tint-2); }
 .m-seqlow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; border-top: var(--rule); padding-top: 6px; }
-.m-seqf { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 4px; min-height: 0; }
+.m-seqf { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 4px; min-height: 0; }
 .m-nalgo { display: block; margin-top: 4px; font-size: .85em; letter-spacing: 0; opacity: .8; }
 .m .m-seqbtns .m-btn { flex-direction: column; }
 

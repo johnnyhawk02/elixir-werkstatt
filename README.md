@@ -64,14 +64,25 @@ The voice page is laid out like the DFAM's panel, the two VCOs first, with the r
 | | vco b | freq, wave, pwm |
 | | mixer | vco a, vco b (the two levels) |
 | | vcf | VCO B's cutoff, reso, vcf mod |
-| | eg / vca | VCO B's attack, decay, sustain (off / on), volume |
-| xtra | a | the rest of VCO A: fine, vco mod and src, glide, its whole VCF, EG and VCA, volume, its LFO |
+| | vca a env | env 1, opening VCO A's VCA: attack, release, gate (a / b / a+b) |
+| | vca b env | env 2, opening VCO B's VCA: attack, release, gate |
+| | vcf env | env 3, the EG mod of both voices (vcf mod, and vco mod set to eg): attack, release, gate |
+| xtra | a | the rest of VCO A: fine, vco mod and src, glide, its whole VCF, its VCA switch, volume, its LFO |
 | | fm | src (a vco / a out), mode (expo / lin) |
-| | b | fine, vco mod, vco src (lfo / eg), glide, vcf src (lfo / eg), polarity (+ / −), drive, vca (eg / on), lfo rate, lfo wave |
+| | b | fine, vco mod, vco src (lfo / eg), glide, vcf src (lfo / eg), polarity (+ / −), drive, vca (eg / on), volume, lfo rate, lfo wave |
 
-The sequencer's notes go on top of the base note; accents turn unaccented notes down after the voice, as before (the
-Werkstatt has no velocity). A gate opens the EG; a slide moves the pitch without a new gate. The morph can move cutoff,
-pwm, vco mod, vcf mod, reso or drive.
+The three envelopes are ARs (the capacitor EG circuit, held at the top while its gate is on, then released), and each
+chooses the gate that fires it: gate a, gate b, or either. By default gate a plays VCO B (env 2), gate b VCO A (env 1),
+and either fires the filter envelope. The sustain switch of Elixir Synth's EG is gone.
+
+**The seq page** is a gate and pitch sequencer, like the DFAM's: four lanes of sixteen steps (four pages, up to 64
+steps). **gate a** and **gate b** set each step's gate time (rest, a quarter to all of the step, or hold on to the
+next); **pitch a** and **pitch b** set VCO A's and VCO B's pitch on each step (two octaves of the root and scale, on
+top of each VCO's freq), set on every step whether it has a gate or not, as a sequencer's pitch CVs are. The morph lane
+(the morph button) moves one knob step by step. Random makes a line with the algo fader's algorithm as gate a and pitch
+b, and gate b and pitch a from it (its accents, the gaps between its notes, the same, or a pattern of its own; a drone,
+the same notes, a fixed step up, or a slow line). A preset from before (one note a step) plays its notes on both VCOs
+and both gates.
 
 Presets keep the voice as `ws` (its knobs by name). A preset from Elixir Synth loads with its sequence and effects and
 the Werkstatt's default sound. Presets here are kept under their own browser key, apart from Elixir Synth's.
@@ -91,14 +102,14 @@ its sound when it loads.)
   Drive, echo feedback, reverb decay and the distortion mix are on the voice, fx and mstr pages.
 
   Chrome asks for MIDI access at the first touch.
-- **SEQ**: the note sequencer. Four pages of sixteen steps, played in turn a bar each; each step has a note, a gate
-  (from a quarter step to ringing out; the bottom rests it), an accent and a slide into the next step. Pick the page
-  (the one playing is underlined) and what a touch sets (note, gate, accent, slide), then draw across the steps.
-  *Copy to n+1* copies the page shown onto the next one and moves there (it's off on page 4).
-  *Length* sets how many steps play, 1 to 64 through the pages in turn; a drag catches at 16, 32 and 48. Root, scale, accent amount and
-  glide time, and random, alter (the page shown) and undo. The algo fader picks how random writes a page: 1 dice,
-  2 acid, 3 euclid, 4 arp, 5 walk, 6 motif, 7 groove, 8 phrase, 9 pure, 10 patternz (random bits of a bank of acid patterns, looped, moved up or down the scale, sometimes backwards, and put in the key; page 2 is page 1 changed a little, page 3 is page 1 moved up, page 4 a new cut-up). Presets from before there were pages play their one page
-  on all four.
+- **SEQ**: the gate and pitch sequencer (gate a, gate b, pitch a, pitch b; see above). Pick the page (the one
+  playing is underlined), then draw across a lane's steps. *Copy to n+1* copies the page shown onto the next one and
+  moves there (it's off on page 4); shift moves the pattern, oct moves both pitch lanes. *Length* sets how many steps
+  play, 1 to 64 through the pages in turn; a drag catches at 16, 32 and 48. Root, scale, density, morph, algo, and
+  random, alter (the page shown) and undo. The algo fader picks how random writes the line: 1 dice, 2 acid, 3 euclid,
+  4 arp, 5 walk, 6 motif, 7 groove, 8 phrase, 9 pure, 10 patternz (random bits of a bank of acid patterns, looped,
+  moved up or down the scale, sometimes backwards, and put in the key; page 2 is page 1 changed a little, page 3 is
+  page 1 moved up, page 4 a new cut-up). Presets from before there were pages play their one page on all four.
 - **VOICE**: both Werkstatt voices and the FM, on a DFAM-style panel tab and an xtra tab (see above).
 - **FX**: the echo (tempo-synced on musical lengths, ping pong, tone, feedback, width), the reverb (send, predelay,
   decay, tone, early reflections; at the top its decay holds) and the ring mod, with random, alter and undo.

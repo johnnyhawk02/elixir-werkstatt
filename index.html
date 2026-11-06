@@ -250,7 +250,12 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-mpreset .m-note { line-height: 1.2; }
 
 /* ---- seq: the page buttons and tools, the sixteen steps in one line, the gate (or morph) lane, then the faders ---- */
-.m-seqpage { display: grid; grid-template-rows: auto minmax(0, 1.6fr) minmax(0, 0.9fr) 134px; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px 10px; min-height: 0; padding: 6px 2px; }
+/* the lanes: gate a, gate b (shorter), pitch a, pitch b, and the morph lane when it's shown; each with its name on the left */
+.m-lane { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 6px; min-height: 0; }
+.m-lane[hidden] { display: none; }
+.m-lane > b { align-self: center; font-weight: 400; text-transform: uppercase; font-size: min(var(--fs-xs), 16px); line-height: 1; }
+.m-seqpage.morph { grid-template-rows: auto minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.7fr) 104px; }
+.m-seqpage { display: grid; grid-template-rows: auto minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) 110px; grid-template-columns: minmax(0, 1fr) 118px; gap: 8px 10px; min-height: 0; padding: 6px 2px; }
 .m-seqpage > * { grid-column: 1; }
 /* random, alter and undo: a column down the right, as on the voice and fx pages */
 .m-seqpage > .m-seqbtns { grid-column: 2; grid-row: 1 / -1; }
@@ -291,7 +296,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-step.thin .m-sn, .m-step.thin .m-sbar { opacity: .35; }
 .m-sm b:hover { background: var(--tint-2); }
 .m-seqlow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; min-height: 0; border-top: var(--rule); padding-top: 6px; }
-.m-seqf { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 4px; min-height: 0; }
+.m-seqf { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 4px; min-height: 0; }
 .m-nalgo { display: block; margin-top: 4px; font-size: .85em; letter-spacing: 0; opacity: .8; }
 .m .m-seqbtns .m-btn { flex-direction: column; }
 
@@ -448,7 +453,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 <main class="m" id="m">
   <header class="m-top">
     <div class="m-trow">
-      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v105</small></button>
+      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v106</small></button>
       <button class="m-btn m-metro" id="m-metro" type="button" aria-pressed="false" aria-label="metronome" title="metronome"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="m-metro-body" d="M9 2.5h6l4.5 19h-15z"/><path d="M6.5 16.5h11"/><g class="m-metro-arm"><path d="M12 19V5.5"/><rect x="10.3" y="8" width="3.4" height="3" rx=".5"/></g></svg></button>
     </div>
     <div class="m-tport">
@@ -511,17 +516,19 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <button class="m-btn" type="button" role="tab" data-page="2" aria-selected="false">3</button>
         <button class="m-btn" type="button" role="tab" data-page="3" aria-selected="false">4</button>
         <button class="m-btn" type="button" id="m-ncopy">copy to 2</button>
-        <button class="m-btn" type="button" id="m-nlane" aria-pressed="false" aria-label="show the morph lane under the notes">morph</button>
+        <button class="m-btn" type="button" id="m-nlane" aria-pressed="false" aria-label="show the morph lane">morph</button>
         <span class="m-nshift" role="group" aria-label="shift"><button class="m-btn" type="button" id="m-nshift-l" data-nshift="-1" aria-label="shift the pattern left">←</button><span aria-hidden="true">shift</span><button class="m-btn" type="button" id="m-nshift-r" data-nshift="1" aria-label="shift the pattern right">→</button></span>
         <span class="m-noct" role="group" aria-label="octave"><button class="m-btn" type="button" id="m-noct-dn" aria-label="octave down">oct −</button><output id="m-noct-out">0</output><button class="m-btn" type="button" id="m-noct-up" aria-label="octave up">oct +</button></span>
       </div>
-      <div class="m-steps" id="m-steps" role="grid" aria-label="the sixteen steps of the page"></div>
-      <div class="m-steps m-gates" id="m-gates" role="grid" aria-label="the sixteen steps' gate times"></div>
-      <div class="m-steps m-gates" id="m-morphs" role="grid" aria-label="the sixteen steps' morph values" hidden></div>
+      <div class="m-lane"><b>gate a</b><div class="m-steps m-gates" id="m-ga" role="grid" aria-label="gate a: the sixteen steps' gate times"></div></div>
+      <div class="m-lane"><b>gate b</b><div class="m-steps m-gates" id="m-gb" role="grid" aria-label="gate b: the sixteen steps' gate times"></div></div>
+      <div class="m-lane"><b>pitch a</b><div class="m-steps" id="m-pa" role="grid" aria-label="vco a's pitch on each step"></div></div>
+      <div class="m-lane"><b>pitch b</b><div class="m-steps" id="m-pb" role="grid" aria-label="vco b's pitch on each step"></div></div>
+      <div class="m-lane" id="m-mlane" hidden><b>morph</b><div class="m-steps m-gates" id="m-morphs" role="grid" aria-label="the sixteen steps' morph values"></div></div>
       <div class="m-seqlow">
         <div class="m-faders m-seqf" id="m-seqf"></div>
       </div>
-      <div class="m-vbtns m-seqbtns" role="group" aria-label="randomise the notes">
+      <div class="m-vbtns m-seqbtns" role="group" aria-label="randomise the sequence">
         <button class="m-btn m-big" id="m-nrand" data-nrand type="button">random<small class="m-nalgo" data-nalgo></small></button>
         <button class="m-btn" id="m-nalter" data-nalter type="button">alter</button>
         <button class="m-btn" data-undo type="button" disabled>undo</button>
@@ -605,7 +612,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <label class="m-chk"><input id="m-pbpm" type="checkbox" checked><i aria-hidden="true"></i>loading a preset uses its tempo</label>
         <label class="m-chk"><input id="m-bigbuf" type="checkbox"><i aria-hidden="true"></i>bigger audio buffer (slower to respond, try it if the sound breaks up)</label>
         <output class="m-aload" id="m-aload">audio: not started</output>
-        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v105, 6 Nov, 08:54</footer>
+        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v106, 6 Nov, 13:44</footer>
       </div>
     </section>
   </div>
@@ -4558,6 +4565,14 @@ const FM_PARAMS = [
   ['fmMode', 'fm mode', 'fm', 0, 1, 0, (v) => ['expo', 'lin'][v]], // into A's pitch CV, or a current into A's core
   ['levelA', 'a level', 'fm', 0, 100, 100, pctW],
   ['levelB', 'b level', 'fm', 0, 100, 0, pctW],
+  // the three AR envelopes and which gate fires each (a, b, or either): env 1 opens the modulator's VCA (the panel's
+  // vco a), env 2 the main voice's (vco b), env 3 is both voices' EG mod source (their vcf mod and vco mod when set to
+  // eg). Envs 1 and 2 take their attack and release from their voice's attack and decay knobs; env 3 has its own
+  ['trig1', 'env 1 gate', 'fm', 0, 2, 1, (v) => ['a', 'b', 'a+b'][v]],
+  ['trig2', 'env 2 gate', 'fm', 0, 2, 0, (v) => ['a', 'b', 'a+b'][v]],
+  ['trig3', 'env 3 gate', 'fm', 0, 2, 2, (v) => ['a', 'b', 'a+b'][v]],
+  ['e3Attack', 'env 3 attack', 'fm', 0, 100, 0, pctW],
+  ['e3Release', 'env 3 release', 'fm', 0, 100, 45, pctW],
 ].map(Object.freeze);
 const FM_DEFAULTS = Object.freeze(Object.fromEntries(FM_PARAMS.map((p) => [p[0], p[5]])));
 
@@ -4818,6 +4833,9 @@ class Werkstatt {
     this.p = { ...WS_DEFAULTS };
     this.offset = 0; // semitones from the base note (the sequencer's note plus the perf pitch)
     this.cv = null; // the pitch CV after glide, volts (1 V/oct from A4)
+    // in a pair: ar (the EG is an AR, holding at the top while its gate is held: the sustain switch is ignored) and
+    // modEnv (the EG used as the mod source, in place of its own)
+    this.ar = false; this.modEnv = null;
     this.set({});
   }
   // knobs by key (any subset); a value is clamped to its range
@@ -4843,10 +4861,10 @@ class Werkstatt {
     const target = (q.note + q.fine / 100 + this.offset - 69) / 12;
     if (this.cv === null) this.cv = target;
     this.cv = this.glideA ? target + (this.cv - target) * this.glideA : target;
-    const env = this.eg.process(this.rA, this.rD, q.sustain);
+    const env = this.eg.process(this.rA, this.rD, this.ar || q.sustain), menv = this.modEnv ? this.modEnv.v : env;
     const lfo = this.lfo.process(lfoHz(q.lfoRate), q.lfoWave);
     // the mod sources as volts: the LFO either way, the EG up (both scaled so full knob gives the octaves set)
-    const src = (s) => (s ? env / C.egPeak : lfo / C.lfoAmp);
+    const src = (s) => (s ? menv / C.egPeak : lfo / C.lfoAmp);
     const vcoCv = this.cv + q.vcoMod / 100 * C.vcoModOctaves * src(q.vcoSrc) + fmCv;
     const ic = Math.max(1e-12, this.vcoExpo.current(vcoCv, this.vcoIMax) + fmI);
     const [saw, pulse] = this.vco.process(ic, this.width);
@@ -4880,12 +4898,39 @@ class WerkstattPair {
     this.b.oscOut = 0; this.os = this.a.os;
     this.decim = new Decimator(this.os);
     this.hpA = Math.exp((-2 * PI * WS_CIRCUIT.outputHp) / sampleRate); this.hpX = 0; this.hpY = 0;
+    // the three AR envelopes: env 1 is B's own EG (the modulator, the panel's vco a), env 2 A's (the main voice, vco b),
+    // env 3 a third, the same circuit, both voices' mod source
+    const C = WS_CIRCUIT;
+    this.e3 = new Eg(this.a.fs, C, C.egCap * (1 + new WRng(seed + 2).gaussian() * C.egCapTol / 3));
+    this.a.ar = this.b.ar = true; this.a.modEnv = this.b.modEnv = this.e3;
+    this.envs = [this.b.eg, this.a.eg, this.e3];
+    this.g = [false, false]; // gates A and B
     this.f = { ...FM_DEFAULTS };
+    this.setFm({});
   }
-  setFm(p) { for (const [k, , , lo, hi] of FM_PARAMS) if (p && typeof p[k] === 'number') this.f[k] = clampW(p[k], lo, hi); }
-  noteOn(offset, gate = true) { this.a.noteOn(offset, gate); this.b.noteOn(offset, gate); }
-  setOffset(offset) { this.a.setOffset(offset); this.b.setOffset(offset); }
-  noteOff() { this.a.noteOff(); this.b.noteOff(); }
+  setFm(p) {
+    for (const [k, , , lo, hi] of FM_PARAMS) if (p && typeof p[k] === 'number') this.f[k] = clampW(p[k], lo, hi);
+    const C = WS_CIRCUIT, F = this.f;
+    this.r3A = C.attackMinR + audioTaper(F.e3Attack / 100, C.attackPotR, C.potTaper);
+    this.r3D = C.decayMinR + audioTaper(F.e3Release / 100, C.decayPotR, C.potTaper);
+  }
+  // gate l (0: A, 1: B) on (a new gate: every envelope it fires starts again from where its capacitor is) or off (an
+  // envelope lets go once none of its gates is held)
+  gate(l, on) {
+    const g = this.g, F = this.f;
+    g[l] = on;
+    [F.trig1, F.trig2, F.trig3].forEach((t, k) => {
+      if (t !== 2 && t !== l) return;
+      if (on) this.envs[k].on();
+      else if (!(t === 2 ? g[0] || g[1] : g[t])) this.envs[k].off();
+    });
+  }
+  // the pitches: semitones from each voice's base note, for the panel's vco a (the modulator, B) and vco b (A)
+  setOffsets(offA, offB) { this.b.setOffset(offA); this.a.setOffset(offB); }
+  // (one note on both voices and both gates: a note heard while stopped)
+  noteOn(offset) { this.setOffsets(offset, offset); this.gate(0, true); this.gate(1, true); }
+  setOffset(offset) { this.setOffsets(offset, offset); }
+  noteOff() { this.gate(0, false); this.gate(1, false); }
   render(out, n = out.length) {
     const C = WS_CIRCUIT, F = this.f, A = this.a, B = this.b, d = this.decim;
     const amt = (Math.pow(C.fmTaper, F.fm / 100) - 1) / (C.fmTaper - 1);
@@ -4893,6 +4938,7 @@ class WerkstattPair {
     const gA = A.p.volume / 100 * F.levelA / 100, gB = B.p.volume / 100 * F.levelB / 100;
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < this.os; k++) {
+        this.e3.process(this.r3A, this.r3D, true);
         const bo = bOn ? B.tick() : 0, src = F.fmSrc ? bo : B.oscOut;
         const ao = F.fmMode ? A.tick(0, amt * src / C.fmLinR) : A.tick(amt * C.fmExpo * src, 0);
         d.push(ao * gA + bo * gB);
@@ -4917,7 +4963,7 @@ return { LxrEngine, PAR, CC, CC2, BLOCK, REAL_FS, PARAM_DTYPES, MOD_TARGETS, MOD
 // the tempo-synced echo: 1/128 of a bar at 0, a whole bar at 1, evenly in octaves between
 const delaySamples = (pos, bpm) => 240 / bpm * Math.pow(2, -7 * (1 - pos)) * LXR.REAL_FS;
 const RING_MAKEUP = 3;
-// a step's gate: 0 rests, 1 to 4 close after a quarter to all of the step, 5 lets the note ring out
+// a step's gate (on each gate lane): 0 rests, 1 to 4 close after a quarter to all of the step, 5 holds it on to the next
 const GATE_RING = 5;
 // a sample into the engine's int16 buses, saturated
 const int16 = (x) => Math.max(-32768, Math.min(32767, Math.round(x)));
@@ -4936,26 +4982,24 @@ class Player {
     this.w = new LXR.WerkstattPair(LXR.REAL_FS, this.seed);
     // ws: the Werkstatt's knobs as the page set them (the morph moves one of them from here)
     this.ws = { ...LXR.WS_DEFAULTS }; this.fm = { ...LXR.FM_DEFAULTS };
-    this.gateOpen = false;
     this.ratio = LXR.REAL_FS / outRate;
     this.A = [new Float32Array(64), new Float32Array(64)];
     this.B = [new Float32Array(64), new Float32Array(64)];
     this.idx = 0; this.frac = 0;
-    // the sequence: 16 steps a page (up to 4 pages) of { n: semitones from middle C, gate, acc, slide }
-    this.steps = Array.from({ length: 16 }, () => ({ n: 0, gate: 0, acc: false, slide: false }));
-    this.playing = false; this.bpm = 120; this.vel = 100; this.accGain = 0.5; this.glide = 0.35;
+    // the sequence: 16 steps a page (up to 4 pages) of { na, nb: the two VCOs' pitches, semitones from their base notes;
+    // ga, gb: gates A and B; m: the morph value }
+    this.steps = Array.from({ length: 16 }, () => ({ na: 0, nb: 0, ga: 0, gb: 0, m: 0 }));
+    this.playing = false; this.bpm = 120;
     this.len = 16; this.pos = 0;
     this.step = 0; this.bar = 0; this.toNext = 0; this.atBar = []; this.clock = 0;
-    // pitch: the perf page's pitch, in semitones (hundredths), added to every note
-    this.pitch = 0;
-    // the note sounding (in semitones from middle C, before pitch), where a slide has it now (cur), its slide and where its gate closes
-    this.note = 0; this.cur = 0; this.slideFrom = null; this.slideAt = 0; this.slideLen = 1; this.cutAt = Infinity;
-    // the voice's gain: the accent (an unaccented note is turned down by the accent amount) times the gate
+    // the two gates: open or not, and when each closes
+    this.gOpen = [false, false]; this.cutAt = [Infinity, Infinity];
+    // the voice's gain (1: kept for the fx sends' scaling)
     this.gain = 1; this.gainTo = 1; this.gate = 1;
     // the morph (off unless the sequence names a Werkstatt knob): each step's morph value (0..1) takes that knob from
-    // the sound's own value (0) to the top (1), set as the step triggers and glided over the slide on a slide into it.
-    // Off, the parameter is put back and nothing here touches the voice
-    this.morphPar = null; this.mCur = 0; this.mFrom = null; this.mTo = 0; this.mSet = null;
+    // the sound's own value (0) to the top (1), set as the step comes round. Off, the parameter is put back and nothing
+    // here touches the voice
+    this.morphPar = null; this.mCur = 0; this.mSet = null;
     this.rec = null;
     // the metronome: a short blip on each beat (clickN counts its samples, -1 silent), added after the recorder
     this.metro = false; this.clickN = -1; this.clickF = 1000;
@@ -4986,8 +5030,7 @@ class Player {
     else if (m.type === 'ws') { Object.assign(this.ws, m.p); this.w.a.set(this.ws); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
     else if (m.type === 'wsB') this.w.b.set(m.p);
     else if (m.type === 'fm') { Object.assign(this.fm, m.p); this.w.setFm(this.fm); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
-    else if (m.type === 'pitch') { this.pitch = m.v; this.setPitch(this.cur); }
-    else if (m.type === 'note') this.play(m.n, m.acc, m.gate, false, m.m || 0);
+    else if (m.type === 'note') this.play({ na: m.na ?? m.n ?? 0, nb: m.nb ?? m.n ?? 0, ga: m.ga ?? m.gate ?? 4, gb: m.gb ?? m.gate ?? 4, m: m.m || 0 });
     else if (m.type === 'delay') this.delayPos = m.pos;
     else if (m.type === 'atBar') { if (this.playing) this.atBar.push(m.m); else this.msg(m.m); }
     else if (m.type === 'mix') {
@@ -5007,17 +5050,16 @@ class Player {
     else if (m.type === 'seq') {
       // a live change wins over one still waiting for the bar
       this.atBar = this.atBar.filter((q) => q.type !== 'seq');
-      this.metro = !!m.metro; this.steps = m.steps; this.bpm = m.bpm; this.e.bpm = m.bpm; this.vel = m.vel; this.glide = m.glide;
+      this.metro = !!m.metro; this.steps = m.steps; this.bpm = m.bpm; this.e.bpm = m.bpm;
       this.len = Math.max(1, Math.min(this.steps.length, m.len || this.steps.length)); if (this.pos >= this.len) this.pos = 0;
-      this.accGain = Math.pow(10, -m.accentDb / 20);
       const mp = m.morph === undefined ? null : m.morph;
       if (mp !== this.morphPar) {
         if (this.morphPar !== null) this.morphTo(this.morphPar, null);
-        this.morphPar = mp; this.mCur = 0; this.mFrom = null; this.mSet = null;
+        this.morphPar = mp; this.mCur = 0; this.mSet = null;
       }
-      if (m.playing && !this.playing) { this.step = 0; this.pos = 0; this.bar = 0; this.toNext = 0; this.cutAt = Infinity; this.slideFrom = null; this.mFrom = null; }
+      if (m.playing && !this.playing) { this.step = 0; this.pos = 0; this.bar = 0; this.toNext = 0; this.cutAt = [Infinity, Infinity]; }
       this.playing = m.playing;
-      if (!this.playing) { this.flushBar(); this.cutAt = this.clock; }
+      if (!this.playing) { this.flushBar(); this.cutAt = [this.clock, this.clock]; }
     }
   }
   recFlush() {
@@ -5031,22 +5073,18 @@ class Player {
     const q = this.atBar; this.atBar = [];
     for (const m of q) this.msg(m.type === 'seq' ? { ...m, playing: this.playing } : m);
   }
-  // the voice to semitone n (from the sound's base note) plus pitch, without a new gate
-  setPitch(n) { this.w.setOffset(n + this.pitch); }
-  // a note: the pitch, and a new gate for the EG (it starts from wherever its capacitor is, as on the hardware).
-  // slide: glide there from the note sounding instead, without a new gate. mv: the step's morph value
-  play(n, acc, gate, slide, mv = 0) {
-    if (slide) { this.slideFrom = this.cur; this.slideAt = 0; if (this.morphPar !== null) { this.mFrom = this.mCur; this.mTo = mv; } }
-    else {
-      this.slideFrom = null;
-      if (this.morphPar !== null) { this.mFrom = null; this.mCur = mv; this.setMorph(mv); }
-      this.gainTo = acc ? 1 : this.accGain; this.cur = n;
-      this.w.noteOn(n + this.pitch); this.gateOpen = true;
-    }
-    this.note = n;
+  // a step: both VCOs to its pitches (every step, gate or not, as a sequencer's pitch CVs are), the morph to its
+  // value, and each gate it has opened (a gate held on from the step before is opened again, so its envelopes start
+  // again) to close after its time
+  play(st) {
+    this.w.setOffsets(st.na || 0, st.nb || 0);
+    if (this.morphPar !== null) { this.mCur = st.m || 0; this.setMorph(this.mCur); }
     const len = LXR.REAL_FS * 60 / this.bpm / 4;
-    this.slideLen = Math.max(64, this.glide * len);
-    this.cutAt = gate >= GATE_RING ? Infinity : this.clock + gate / 4 * len;
+    [st.ga, st.gb].forEach((g, l) => {
+      if (!g) return;
+      this.w.gate(l, true); this.gOpen[l] = true;
+      this.cutAt[l] = g >= GATE_RING ? Infinity : this.clock + g / 4 * len;
+    });
   }
   // the morph knob at k (0..1) of the way from the sound's own value to the top; at 0 exactly the sound's value
   setMorph(k) {
@@ -5061,15 +5099,7 @@ class Player {
     const top = (fm ? LXR.FM_PARAMS : LXR.WS_PARAMS).find((q) => q[0] === par)[4], v = k ? b + (top - b) * k : b;
     if (fm) this.w.setFm({ ...this.fm, [par]: v }); else this.w.a.set({ [par]: v });
   }
-  // step s (of the sequence's len steps): its note, slid into from the step before when that one slides and both play; a step that slides on
-  // keeps its gate open into the next (the sequence wraps at its length)
-  doStep(s) {
-    const S = this.steps, N = this.len, cur = S[s], prev = S[(s + N - 1) % N], next = S[(s + 1) % N];
-    if (!cur.gate) return;
-    const slideIn = prev.slide && prev.gate > 0 && this.cutAt === Infinity && this.gate > 0;
-    this.play(cur.n, cur.acc, cur.slide && next.gate ? GATE_RING : cur.gate, slideIn, cur.m || 0);
-    if (slideIn && cur.acc) this.gainTo = 1;
-  }
+  doStep(s) { this.play(this.steps[s]); }
   _render(dst) {
     if (this.playing) {
       if (this.toNext <= 0) {
@@ -5087,17 +5117,8 @@ class Player {
       }
       this.toNext -= 64;
     }
-    // a slide: the pitch glides from the note before over the glide time
-    if (this.slideFrom !== null) {
-      this.slideAt += 64;
-      const k = Math.min(1, this.slideAt / this.slideLen);
-      this.cur = this.slideFrom + (this.note - this.slideFrom) * k;
-      this.setPitch(this.cur);
-      if (this.mFrom !== null) { this.mCur = this.mFrom + (this.mTo - this.mFrom) * k; this.setMorph(this.mCur); }
-      if (k >= 1) { this.slideFrom = null; this.cur = this.note; this.mFrom = null; }
-    }
-    // the gate closes: the EG lets go (it runs down at its decay, or holds on with the VCA switched to on)
-    if (this.clock >= this.cutAt && this.gateOpen) { this.w.noteOff(); this.gateOpen = false; }
+    // a gate closes: its envelopes let go (unless the other gate is holding them)
+    for (let l = 0; l < 2; l++) if (this.clock >= this.cutAt[l] && this.gOpen[l]) { this.w.gate(l, false); this.gOpen[l] = false; }
     this.clock += 64;
     // the engine runs for its FX bus; the voice is the Werkstatt's, put where the engine's drum 1 would be heard
     this.e.renderBlock();
@@ -5337,8 +5358,10 @@ function setValue(par, v) {
   if (par === PAR.TARGET_LFO1) send({ type: 'param', par: PAR.VOICE_LFO1, value: 1 });
 }
 
-// ---- the note sequence: four pages of 16 steps, played in turn a bar each; each step a degree of the scale (0 the root, up two octaves and more), a gate (0 rests, 1-4
-// a quarter to all of the step, 5 rings), an accent and a slide into the next; root and scale say which notes those are ----
+// ---- the sequence: four pages of 16 steps, played in turn a bar each. Each step has two gates, ga and gb (0 rests,
+// 1-4 a quarter to all of the step, 5 holds on to the next; the envelopes choose which gate fires them), and two
+// pitches, pa for vco a and pb for vco b, each a degree of the scale (0 the root, up two octaves); root and scale say
+// which notes those are ----
 const SCALES = [['major', [0, 2, 4, 5, 7, 9, 11]], ['minor', [0, 2, 3, 5, 7, 8, 10]], ['dorian', [0, 2, 3, 5, 7, 9, 10]],
   ['phrygian', [0, 1, 3, 5, 7, 8, 10]], ['mixolyd', [0, 2, 4, 5, 7, 9, 10]], ['harm min', [0, 2, 3, 5, 7, 8, 11]],
   ['pent min', [0, 3, 5, 7, 10]], ['pent maj', [0, 2, 4, 7, 9]], ['blues', [0, 3, 5, 6, 7, 10]], ['chromatic', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]];
@@ -5351,16 +5374,19 @@ const OCT_MIN = -2, OCT_MAX = 2;
 // but nothing is heard of them
 const MORPH_DESTS = [['cutoff', 'cutoff'], ['pwm', 'pwm'], ['vco mod', 'vcoMod'], ['vcf mod', 'vcfMod'], ['reso', 'reso'], ['drive', 'drive'], ['fm amt', 'fm']];
 const SEQ0 = { root: 0, scale: 1, oct: 0, density: 100, len: 64, accent: 6, glide: 35, vel: 100, algo: 8, morph: 0,
-  steps: [[0, 4, 1, 0], [0, 2, 0, 0], [7, 3, 0, 1], [8, 4, 0, 0], [0, 0, 0, 0], [3, 3, 1, 0], [0, 2, 0, 0], [5, 4, 0, 1],
-    [4, 4, 0, 0], [0, 2, 1, 0], [0, 0, 0, 0], [7, 3, 0, 0], [6, 4, 1, 1], [7, 4, 0, 0], [2, 2, 0, 0], [0, 3, 0, 0]].map(([d, gate, acc, slide]) => ({ d, gate, acc: !!acc, slide: !!slide })) };
+  steps: [[0, 4, 0], [0, 2, 0], [7, 3, 0], [8, 4, 0], [0, 0, 0], [3, 3, 0], [0, 2, 0], [5, 4, 0],
+    [4, 4, 0], [0, 2, 0], [0, 0, 0], [7, 3, 0], [6, 4, 0], [7, 4, 0], [2, 2, 0], [0, 3, 0]].map(([d, gate]) => ({ d, gate })) };
 const PAGES = 4, NSTEPS = PAGES * 16;
+// a step from before the two gates and pitches (one note: d, gate) plays its note on both VCOs, on both gates
+const stepUp = (st) => (st.ga === undefined ? { ga: st.gate || 0, gb: st.gate || 0, pa: st.d || 0, pb: st.d || 0, w: st.w, m: st.m || 0 } : { ...st });
 // a sequence with fewer pages (one, from before there were four) is repeated to fill them, so it plays as it did
-const fillPages = (steps) => Array.from({ length: NSTEPS }, (_, i) => ({ ...steps[i % steps.length] }));
+const fillPages = (steps) => Array.from({ length: NSTEPS }, (_, i) => stepUp(steps[i % steps.length]));
 SEQ0.steps = fillPages(SEQ0.steps);
 const seq = structuredClone(SEQ0);
 // a degree's semitones above the root's C, moved by the octave buttons (the note heard: the voice's coarse, plus this, plus pitch)
 const degSemis = (d, sc = seq.scale, root = seq.root, oct = seq.oct) => { const s = SCALES[sc][1]; return root + 12 * oct + s[d % s.length] + 12 * Math.floor(d / s.length); };
-const stepNote = (st) => ws.note + degSemis(st.d);
+// the notes a step plays: vco a (the modulator, wsB) and vco b (the main voice, ws)
+const stepNoteA = (st) => wsB.note + degSemis(st.pa), stepNoteB = (st) => ws.note + degSemis(st.pb);
 let playing = false, tempo = 120;
 // density: each step has a weight, w, 0 to 99 (the randomisers deal them out at random); as the density comes down
 // from 100, the steps weighted under 100 - density drop out, the lowest first, until at 0 even a 99 is gone. A step
@@ -5368,7 +5394,7 @@ let playing = false, tempo = 120;
 // the off-beat 16ths low
 const DENSITY_ORDER = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
 const stepWeight = (st, s) => (Number.isFinite(st.w) ? st.w : Math.round(99 - DENSITY_ORDER.indexOf(s % 16) * 99 / 15));
-const thinned = () => seq.steps.map((st, s) => s < seq.len && st.gate > 0 && stepWeight(st, s) < 100 - seq.density);
+const thinned = () => seq.steps.map((st, s) => s < seq.len && (st.ga > 0 || st.gb > 0) && stepWeight(st, s) < 100 - seq.density);
 // the metronome (on the main page): a click on each beat while playing, high on the bar's first; a setting of this
 // browser's, not of the preset, and not in a recording
 const METRO_KEY = 'elixir-werkstatt-metro';
@@ -5376,8 +5402,8 @@ let metroOn = store.get(METRO_KEY) === '1';
 function sendSeq() {
   const thin = thinned();
   const md = MORPH_DESTS[seq.morph - 1];
-  send({ type: 'seq', playing, metro: metroOn, len: seq.len, bpm: tempo, vel: seq.vel, glide: seq.glide / 100, accentDb: seq.accent, morph: md ? md[1] : null,
-    steps: seq.steps.map((st, s) => ({ n: degSemis(st.d), gate: thin[s] ? 0 : st.gate, acc: st.acc, slide: st.slide, m: (st.m || 0) / 100 })) });
+  send({ type: 'seq', playing, metro: metroOn, len: seq.len, bpm: tempo, morph: md ? md[1] : null,
+    steps: seq.steps.map((st, s) => ({ na: degSemis(st.pa), nb: degSemis(st.pb), ga: thin[s] ? 0 : st.ga, gb: thin[s] ? 0 : st.gb, m: (st.m || 0) / 100 })) });
 }
 
 // ---- effects and master: echo, reverb and ring mod sends; the echo's tone, feedback and ping pong are the engine's own
@@ -5484,7 +5510,6 @@ async function restartAudio() {
 function sendAll() {
   send({ type: 'kit', values: effValues() });
   sendWs(); sendWsB(); sendFm();
-  send({ type: 'pitch', v: macro.pitch });
   send({ type: 'delay', pos: delayPos });
   sendMix(); sendSeq();
 }
@@ -5718,8 +5743,8 @@ const ccDials = PERF_DIALS.map(([label, o], i) => mFader($('m-perf'), label, { .
 }
 
 // ---- voice: laid out like the DFAM's panel. The panel tab has the two voices as the DFAM has its two VCOs: VCO A
-// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, then VCO B's VCF and its EG/VCA. VCO B is the main
-// voice (the perf dials, randomisers and morph act on it). Inside, the main voice is still state `ws` / engine voice
+// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, VCO B's VCF, then the three AR envelopes. VCO B is the
+// main voice (the randomisers and morph act on it). Inside, the main voice is still state `ws` / engine voice
 // `a`, and VCO A (the modulator) is `wsB` / engine `b`, so presets keep their meaning; only the panel names differ.
 // The xtra tab has the rest: VCO A's other knobs, the FM's switches, and everything else of VCO B ----
 // every Werkstatt knob, for the randomisers
@@ -5735,12 +5760,16 @@ const VP_TABS = [
     ['vco b', 'm-voice-tone', A_('note', 'wave', 'pwm')],
     ['mixer', 'm-voice-mix', [['fm', 'levelB', 'vco a'], ['fm', 'levelA', 'vco b']]],
     ['vcf', 'm-voice-filter', A_('cutoff', 'reso', 'vcfMod')],
-    ['eg / vca', 'm-voice-shape', A_('attack', 'decay', 'sustain', 'volume')]]],
+    // the three AR envelopes: env 1 opens vco a's VCA, env 2 vco b's, env 3 is the mod (vcf mod, and vco mod set to
+    // eg) of both; each with the gate that fires it
+    ['vca a env', 'm-voice-env1', [['b', 'attack'], ['b', 'decay', 'release'], ['fm', 'trig1', 'gate']]],
+    ['vca b env', 'm-voice-shape', [['a', 'attack'], ['a', 'decay', 'release'], ['fm', 'trig2', 'gate']]],
+    ['vcf env', 'm-voice-env3', [['fm', 'e3Attack', 'attack'], ['fm', 'e3Release', 'release'], ['fm', 'trig3', 'gate']]]]],
   ['xtra', 3, [
     ['a', 'm-voice-bx', B_('fine', 'vcoMod', 'vcoSrc', 'glide', 'cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive',
-      'attack', 'decay', 'sustain', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')],
+      'vcaMode', 'volume', 'lfoRate', 'lfoWave')],
     ['fm', 'm-voice-fm', [['fm', 'fmSrc', 'src'], ['fm', 'fmMode', 'mode']]],
-    ['b', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'lfoRate', 'lfoWave')]]]];
+    ['b', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')]]]];
 let mVSec = 0;
 const mVBoxes = VP_TABS.map(([title, rows, secs], k) => {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'm-btn'; b.setAttribute('role', 'tab'); b.textContent = title;
@@ -5835,13 +5864,14 @@ eventHandlers.push((ev) => {
 });
 stopHooks.push(() => { grShown = '0.0 dB'; $('m-gr').style.setProperty('--gr', 0); $('m-gr-out').textContent = grShown; });
 
-// ---- the seq page: the note sequencer. Four pages of sixteen steps; length says how many of them play (1 to 64,
-// through the pages in turn). Along the top: the page tabs (the one playing underlined, those past the length faded),
-// copy (the page shown onto the next) and oct - / oct + (the whole sequence an octave). Then the page's sixteen steps:
-// a step's height is its note, two octaves of the scale (a touch on a resting step brings it on), and the A and S under
-// it switch its accent and slide (tap, or drag along the row). Under the notes, a lane of the steps' gate times
-// (bottom rests, then a quarter to all of the step, top rings), or (the morph button) of their morph values. Under that
-// the faders (root, scale, accent, length, density, glide, morph, algo) and random, alter, undo ----
+// ---- the seq page: a gate and pitch sequencer. Four pages of sixteen steps; length says how many of them play (1 to
+// 64, through the pages in turn). Along the top: the page tabs (the one playing underlined, those past the length
+// faded), copy (the page shown onto the next), morph (shows the morph lane), shift and oct - / oct + (both pitch lanes
+// an octave). Then the lanes, each sixteen steps: gate a and gate b (each step's gate time: bottom rests, then a
+// quarter to all of the step, top holds on to the next; the envelopes choose which gate fires them), pitch a and
+// pitch b (vco a's and vco b's pitch on each step, two octaves of the scale, set on every step as a sequencer's pitch
+// CVs are), and the morph values. Under them the faders (root, scale, length, density, morph, algo) and random,
+// alter, undo ----
 let nsPage = 0;
 const nsAbs = (i) => nsPage * 16 + i;
 const nsStep = (i) => seq.steps[nsAbs(i)];
@@ -5851,35 +5881,27 @@ const nsRow = (id, cls, html) => Array.from({ length: 16 }, (_, i) => {
   const c = document.createElement('div'); c.className = cls; c.dataset.i = i; c.setAttribute('role', 'gridcell');
   c.innerHTML = html; $(id).append(c); return c;
 });
-const nsCells = nsRow('m-steps', 'm-step',
-  '<span class="m-sn"></span><i class="m-sbar"></i><span class="m-sm"><b class="a" role="button" aria-label="accent">A</b><b class="s" role="button" aria-label="slide">S</b></span>');
-const nsGates = nsRow('m-gates', 'm-step m-gstep', '<i class="m-sbar"></i><span class="m-sn"></span>');
-const nsMorphs = nsRow('m-morphs', 'm-step m-gstep', '<i class="m-sbar"></i><span class="m-sn"></span>');
-const GATE_NAMES = ['rest', '¼', '½', '¾', 'full', 'ring'];
-// which lane is under the notes: the gate times, or the morph values
+const CELL = '<i class="m-sbar"></i><span class="m-sn"></span>';
+// the lanes: [box id, the step's key, its cells]
+const NS_LANES = [['m-ga', 'ga'], ['m-gb', 'gb'], ['m-pa', 'pa'], ['m-pb', 'pb'], ['m-morphs', 'm']].map(([id, k]) => [id, k, nsRow(id, 'm-step m-gstep', CELL)]);
+const nsCellsOf = (k) => NS_LANES.find((l) => l[1] === k)[2];
+const GATE_NAMES = ['rest', '¼', '½', '¾', 'full', 'hold'];
+// the morph lane: shown or not
 let nsLaneMorph = false;
 $('m-nlane').addEventListener('click', () => { nsLaneMorph = !nsLaneMorph; nsDraw(); });
 function nsDraw() {
   const thin = thinned(), top = degMax();
-  nsCells.forEach((c, i) => {
-    const st = nsStep(i), g = nsGates[i], name = st.gate ? noteName(stepNote(st)) : 'rest';
-    for (const el of [c, g]) { el.classList.toggle('thin', thin[nsAbs(i)]); el.classList.toggle('out', nsAbs(i) >= seq.len); el.classList.toggle('rest', !st.gate); }
-    c.classList.toggle('acc', st.acc); c.classList.toggle('slide', st.slide);
-    c.style.setProperty('--f', (Math.min(st.d, top) + 1) / (top + 1));
-    c.querySelector('.m-sn').textContent = st.gate ? name : '—';
-    c.setAttribute('aria-label', `step ${i + 1}: ${name}${st.acc ? ', accent' : ''}${st.slide ? ', slide' : ''}`);
-    g.style.setProperty('--f', st.gate / 5);
-    g.querySelector('.m-sn').textContent = GATE_NAMES[st.gate];
-    g.setAttribute('aria-label', `step ${i + 1} gate: ${GATE_NAMES[st.gate]}`);
-    const mc = nsMorphs[i], mv = st.m || 0;
-    mc.classList.toggle('thin', thin[nsAbs(i)]); mc.classList.toggle('out', nsAbs(i) >= seq.len); mc.classList.toggle('rest', !st.gate);
-    mc.style.setProperty('--f', mv / 100);
-    mc.querySelector('.m-sn').textContent = String(mv);
-    mc.setAttribute('aria-label', `step ${i + 1} morph: ${mv}`);
+  for (const [, k, cells] of NS_LANES) cells.forEach((c, i) => {
+    const st = nsStep(i), s = nsAbs(i), any = st.ga > 0 || st.gb > 0;
+    c.classList.toggle('thin', thin[s]); c.classList.toggle('out', s >= seq.len);
+    let f, txt, label;
+    if (k === 'ga' || k === 'gb') { f = st[k] / 5; txt = GATE_NAMES[st[k]]; label = `step ${i + 1} gate ${k[1]}: ${txt}`; c.classList.toggle('rest', !st[k]); }
+    else if (k === 'm') { const mv = st.m || 0; f = mv / 100; txt = String(mv); label = `step ${i + 1} morph: ${mv}`; c.classList.toggle('rest', !any); }
+    else { f = (Math.min(st[k], top) + 1) / (top + 1); txt = noteName(k === 'pa' ? stepNoteA(st) : stepNoteB(st)); label = `step ${i + 1} pitch ${k[1]}: ${txt}`; c.classList.toggle('rest', !any); }
+    c.style.setProperty('--f', f); c.querySelector('.m-sn').textContent = txt; c.setAttribute('aria-label', label);
   });
-  $('m-gates').hidden = nsLaneMorph; $('m-morphs').hidden = !nsLaneMorph;
+  $('m-mlane').hidden = !nsLaneMorph; document.querySelector('.m-seqpage').classList.toggle('morph', nsLaneMorph);
   $('m-nlane').setAttribute('aria-pressed', nsLaneMorph);
-  $('m-nlane').textContent = nsLaneMorph ? 'gates' : 'morph';
   $('m-morphs').classList.toggle('off', !seq.morph);
   document.querySelectorAll('#m-npages [data-page]').forEach((b) => { b.setAttribute('aria-selected', +b.dataset.page === nsPage); b.classList.toggle('out', +b.dataset.page * 16 >= seq.len); });
   $('m-ncopy').textContent = `copy to ${Math.min(nsPage + 2, PAGES)}`; $('m-ncopy').disabled = nsPage >= PAGES - 1;
@@ -5889,10 +5911,9 @@ function nsDraw() {
 drawHooks.push(nsDraw);
 const nsShow = (pg) => { nsPage = pg; nsDraw(); nsNow(); };
 $('m-npages').addEventListener('click', (e) => { const b = e.target.closest('[data-page]'); if (b) nsShow(+b.dataset.page); });
-// octave down and up: the whole sequence, every page
+// octave down and up: both pitch lanes, every page
 const nsOct = (k) => { seq.oct = Math.max(OCT_MIN, Math.min(OCT_MAX, seq.oct + k)); nsChanged(); };
-// shift: the whole sequence (the steps within its length, every lane: note, gate, accent, slide, morph) a step left
-// or right, wrapping round at the length
+// shift: the whole sequence (the steps within its length, every lane) a step left or right, wrapping round at the length
 function nsShift(k) {
   const n = seq.len, was = seq.steps.slice(0, n);
   for (let s = 0; s < n; s++) seq.steps[s] = was[(s - k + n) % n];
@@ -5901,8 +5922,12 @@ function nsShift(k) {
 for (const b of document.querySelectorAll('[data-nshift]')) b.addEventListener('click', () => nsShift(+b.dataset.nshift));
 $('m-noct-dn').addEventListener('click', () => nsOct(-1));
 $('m-noct-up').addEventListener('click', () => nsOct(1));
-// hear a note as it's set, while stopped
-function nsHear(st) { if (!playing && st.gate) { startAudio(); send({ type: 'note', n: degSemis(st.d), acc: st.acc, gate: st.gate, m: (st.m || 0) / 100 }); } }
+// hear a step as it's set, while stopped: its pitches on its own gates (a pitch set on a resting step: both gates)
+function nsHear(st) {
+  if (playing) return;
+  const any = st.ga > 0 || st.gb > 0;
+  startAudio(); send({ type: 'note', na: degSemis(st.pa), nb: degSemis(st.pb), ga: any ? st.ga : 4, gb: any ? st.gb : 4, m: (st.m || 0) / 100 });
+}
 // how high a touch is on el: 0 at its bottom to 1 at its top
 const nsY = (el, e) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (r.bottom - e.clientY) / r.height)); };
 // a row of sixteen that a touch, or a drag across, edits: edit(i, e, first) changes step i and says whether to play it
@@ -5922,43 +5947,21 @@ function nsLane(box, edit) {
   box.addEventListener('pointermove', (e) => { if (on && !e.buttons) stop(); else if (on) at(e, false); });
   box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop); dragStops.add(stop);
 }
-// the notes; a touch that starts on the A/S row (or a little above it: the left half is A, the right S) switches that,
-// and a drag along the row sets the others the same. Otherwise the note is where the touch is on the step's bar
-{
-  let flag = null;
-  nsLane($('m-steps'), (i, e, first) => {
-    const st = nsStep(i);
-    if (first) {
-      const m = nsCells[i].querySelector('.m-sm').getBoundingClientRect();
-      const k = e.clientX < m.left + m.width / 2 ? 'acc' : 'slide';
-      flag = e.clientY >= m.top - m.height * 0.5 ? { k, to: !st[k], seen: new Set() } : null;
-    }
-    if (flag) {
-      if (flag.seen.has(i)) return null;
-      flag.seen.add(i); st[flag.k] = flag.to;
-      return false;
-    }
-    const d = Math.min(degMax(), Math.floor(nsY(nsCells[i].querySelector('.m-sbar'), e) * (degMax() + 1)));
-    if (d !== st.d || !st.gate) { st.d = d; if (!st.gate) st.gate = 4; return true; }
+// each lane: the value where the touch is on the step's bar (gates 0..5, pitches a degree of the two octaves, morph 0..100 in fives)
+for (const [id, k, cells] of NS_LANES) {
+  const steps = k === 'ga' || k === 'gb' ? 6 : k === 'm' ? 21 : degMax() + 1;
+  nsLane($(id), (i, e, first) => {
+    const st = nsStep(i), n = k === 'pa' || k === 'pb' ? degMax() + 1 : steps;
+    let v = Math.floor(nsY(cells[i].querySelector('.m-sbar') || cells[i], e) * n);
+    if (k === 'm') v *= 5;
+    if (v !== (st[k] || 0)) { st[k] = v; return k !== 'm'; }
     return first ? false : null;
   });
 }
-// the gate times
-nsLane($('m-gates'), (i, e, first) => {
-  const st = nsStep(i), g = Math.floor(nsY(nsGates[i], e) * 6);
-  if (g !== st.gate) { st.gate = g; return true; }
-  return first ? false : null;
-});
-// the morph values, 0 (the bottom) to 100 (the top) in fives
-nsLane($('m-morphs'), (i, e, first) => {
-  const st = nsStep(i), m = Math.floor(nsY(nsMorphs[i], e) * 21) * 5;
-  if (m !== (st.m || 0)) { st.m = m; return true; }
-  return first ? false : null;
-});
 // the step playing (if its page is shown) and its page, marked as they're heard
 let nsAt = null;
 function nsNow() {
-  nsCells.forEach((c, i) => c.classList.toggle('now', !!nsAt && nsAt.page === nsPage && i === nsAt.step));
+  for (const [, , cells] of NS_LANES) cells.forEach((c, i) => c.classList.toggle('now', !!nsAt && nsAt.page === nsPage && i === nsAt.step));
   document.querySelectorAll('#m-npages [data-page]').forEach((b) => b.classList.toggle('now', !!nsAt && +b.dataset.page === nsAt.page));
 }
 eventHandlers.push((ev) => {
@@ -5973,18 +5976,18 @@ stopHooks.push(() => { nsAt = null; nsNow(); });
 const nsFader = (label, key, o) => mFader($('m-seqf'), label, { get: () => seq[key], set: (v) => { seq[key] = v; nsChanged(); }, dflt: SEQ0[key], ...o });
 nsFader('root', 'root', { min: 0, max: 11, show: (v) => NOTE_NAMES[v] });
 nsFader('scale', 'scale', { min: 0, max: SCALES.length - 1, show: (v) => SCALES[v][0] });
-nsFader('accent', 'accent', { min: 0, max: 12, show: (v) => `+${v}dB` });
 // length: a drag catches at 16, 32 and 48 (a page, two, three)
 // (the main page has the same fader: a move of either redraws both)
 const nsLen = (v) => { seq.len = v; nsChanged(); drawAll(); };
 nsFader('length', 'len', { set: nsLen, min: 1, max: NSTEPS, show: (v) => String(v), detents: [16, 32, 48], catch: 2.5 });
 nsFader('density', 'density', { set: (v) => { seq.density = v; nsChanged(); drawAll(); }, min: 0, max: 100, step: 5, show: (v) => v + '%' });
-nsFader('glide', 'glide', { min: 0, max: 100, step: 5, show: (v) => v + '%' });
 // morph: off, or the voice parameter the morph lane moves
 nsFader('morph', 'morph', { min: 0, max: MORPH_DESTS.length, show: (v) => (v ? MORPH_DESTS[v - 1][0] : 'off') });
 
 // random: a new line for a page, made by the algorithm picked on the algo fader (kept in the preset). Each makes 16
-// steps of { d: degree of the scale, gate, acc, slide }, so whatever it makes stays in the key
+// steps of { d: degree of the scale, gate, acc, slide }, so whatever it makes stays in the key; twoLanes then makes the
+// sequencer's two gates and two pitches of it: the line is gate a and pitch b, and gate b and pitch a come from it in
+// one of a few ways, picked per randomise (partners)
 const st = (d, gate, acc = false, slide = false) => ({ d: Math.max(0, Math.min(degMax(), d)), gate, acc, slide, w: rIn(0, 99) });
 const euclid = (k, rot) => Array.from({ length: 16 }, (_, i) => ((i + rot) * k) % 16 < k);
 const SEQ_ALGOS = [
@@ -6099,25 +6102,45 @@ function patternzPage(n, pool) {
 // the whole sequence: a page, the same with a few steps changed, the same moved up the scale, and a new page from the
 // same patterns to end on
 function patternzPages() {
-  const n = SCALES[seq.scale][1].length, pool = patternzPool(), a = patternzPage(n, pool), up = pick([2, 3, 4]);
-  a.forEach((x, i) => { seq.steps[i] = x; seq.steps[16 + i] = { ...x }; seq.steps[32 + i] = st(x.d + up, x.gate, x.acc, x.slide); });
+  const n = SCALES[seq.scale][1].length, pool = patternzPool(), a = patternzPage(n, pool), up = pick([2, 3, 4]), P = partners();
+  const a2 = twoLanes(a, P), a3 = twoLanes(a.map((x) => st(x.d + up, x.gate, x.acc, x.slide)), P);
+  a2.forEach((x, i) => { seq.steps[i] = x; seq.steps[16 + i] = { ...x }; seq.steps[32 + i] = a3[i]; });
   alterPage(1, rIn(2, 3));
-  patternzPage(n, pool).forEach((x, i) => { seq.steps[48 + i] = x; });
+  twoLanes(patternzPage(n, pool), P).forEach((x, i) => { seq.steps[48 + i] = x; });
 }
-function randomPage(pg) {
+// gate b, from the line: its accents (the hits that stand out), the rests between its notes (the two interlock), the
+// same gates, or an even pattern of its own
+const GATE_B = {
+  accents: (L) => L.map((x) => (x.gate && x.acc ? pick([1, 2, 3]) : 0)),
+  between: (L) => L.map((x) => (x.gate ? 0 : chance(0.7) ? pick([1, 2]) : 0)),
+  same: (L) => L.map((x) => x.gate),
+  euclid: () => { const h = euclid(rIn(3, 7), rIn(0, 15)), g = pick([1, 2, 3]); return h.map((on) => (on ? g : 0)); },
+};
+// pitch a, from the line: a drone on the root, the same notes, the same a fixed step up the scale, or a slow line of its own (a note a beat)
+const PITCH_A = {
+  drone: (L) => L.map(() => 0),
+  same: (L) => L.map((x) => x.d),
+  interval: (L, n) => { const up = pick([2, 4, n]); return L.map((x) => Math.min(degMax(), x.d + up)); },
+  slow: (L, n) => { let d = 0; return L.map((x, i) => { if (i % 4 === 0) d = pick([0, 0, 2, 4, n - 1, n]); return Math.min(degMax(), d); }); },
+};
+const partners = () => ({ gb: pick(Object.keys(GATE_B)), pa: pick(Object.keys(PITCH_A)) });
+function twoLanes(L, P = partners()) {
+  const n = SCALES[seq.scale][1].length, pa = PITCH_A[P.pa](L, n);
+  let gb = GATE_B[P.gb](L);
+  if (!gb.some(Boolean)) gb = GATE_B.euclid();
+  return L.map((x, i) => ({ ga: x.gate, gb: gb[i], pa: pa[i], pb: x.d, w: x.w, m: 0 }));
+}
+function randomPage(pg, P = partners()) {
   const n = SCALES[seq.scale][1].length;
   const algo = SEQ_ALGOS[seq.algo] || SEQ_ALGOS[0];
-  algo[1](n).forEach((x, i) => { seq.steps[pg * 16 + i] = x; });
+  twoLanes(algo[1](n), P).forEach((x, i) => { seq.steps[pg * 16 + i] = x; });
 }
-// alter: k steps of a page changed a little: a note a step or two up or down the scale, a rest played or a note
-// rested, an accent or a slide switched
+// alter: k steps of a page changed a little: a pitch a step or two up or down the scale, a gate played or rested
 function alterPage(pg, k = rIn(2, 4)) {
   for (let j = 0; j < k; j++) {
     const st = seq.steps[pg * 16 + rIn(0, 15)], what = rIn(0, 3);
-    if (what === 0 || (what === 1 && !st.gate)) { st.d = Math.max(0, Math.min(degMax(), st.d + pick([-2, -1, 1, 2]))); if (!st.gate) st.gate = 4; }
-    else if (what === 1) st.gate = chance(0.4) ? 0 : rIn(1, 5);
-    else if (what === 2) st.acc = !st.acc;
-    else st.slide = !st.slide;
+    if (what < 2) { const p = what ? 'pa' : 'pb'; st[p] = Math.max(0, Math.min(degMax(), st[p] + pick([-2, -1, 1, 2]))); }
+    else { const g = what === 2 ? 'ga' : 'gb'; st[g] = st[g] && chance(0.5) ? 0 : rIn(1, 5); }
   }
 }
 // copy: page 1 onto pages 2 to 4, each changed a little (two or three steps; the last page, the turnaround, a few more)
@@ -6130,7 +6153,7 @@ function copyVary() {
 // the whole sequence, for the perf page's randomisers: a new page 1 and its variations
 function randomNotes() { if (SEQ_ALGOS[seq.algo][0] === 'patternz') patternzPages(); else { randomPage(0); copyVary(); } sendSeq(); }
 // random: all 64 steps, each page a new line of its own (not a variation of page 1), whichever page is shown
-for (const b of document.querySelectorAll('[data-nrand]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { if (SEQ_ALGOS[seq.algo][0] === 'patternz') patternzPages(); else for (let pg = 0; pg < PAGES; pg++) randomPage(pg); sendSeq(); }));
+for (const b of document.querySelectorAll('[data-nrand]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { if (SEQ_ALGOS[seq.algo][0] === 'patternz') patternzPages(); else { const P = partners(); for (let pg = 0; pg < PAGES; pg++) randomPage(pg, P); } sendSeq(); }));
 for (const b of document.querySelectorAll('[data-nalter]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { alterPage(nsPage); sendSeq(); }));
 // copy to the next page: the page shown, exactly, onto the one after it, which is then shown (so pressing it again
 // carries on to the next); off on page 4. Undo puts the page back as it was
@@ -6283,7 +6306,7 @@ $('m-fs-rand').addEventListener('click', () => { const q = fsF.seq; q.vals = FS_
 // worth moving (the filter most often), each of a random kind, length, speed, depth and slew, now and then with a
 // slide or two; knob seqs off clears them all. Both can be undone
 const FS_TARGETS = ['m-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:reso', 'm-voice-filter:vcf mod',
-  'm-voice-mod:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-mod:vco mod', 'm-voice-shape:decay', 'm-voice-mod:lfo rate',
+  'm-voice-mod:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-mod:vco mod', 'm-voice-shape:release', 'm-voice-mod:lfo rate',
   'm-voice-b:a→b fm', 'm-echo:send', 'm-echo:feedback', 'm-verb:send', 'm-ring:freq'];
 function fsClearAll() { for (const f of mFaders) { fsRelease(f); f.seq = null; } if (fsF) $('m-fs-close').click(); fsMarks(); }
 function fsRandomAll() {
@@ -6381,7 +6404,10 @@ const RANDOM_VOICE = {
     rSet('vcoMod', vib ? rIn(2, 25) : 0); rSet('vcoSrc', vib && chance(0.4) ? 1 : 0); rSet('glide', chance(0.3) ? rIn(5, 40) : 0);
   },
   shape() {
-    rSet('attack', chance(0.75) ? rIn(0, 8) : rIn(8, 50)); rSet('decay', rIn(20, 80)); rSet('sustain', chance(0.3) ? 1 : 0); rSet('vcaMode', 0);
+    // the three envelopes (their gates stay): env 2 on vco b's VCA, env 1 on vco a's, env 3 on the filters
+    rSet('attack', chance(0.75) ? rIn(0, 8) : rIn(8, 50)); rSet('decay', rIn(20, 80)); rSet('vcaMode', 0);
+    setWsB('attack', chance(0.75) ? rIn(0, 8) : rIn(8, 50)); setWsB('decay', rIn(10, 80));
+    setFm('e3Attack', chance(0.7) ? rIn(0, 10) : rIn(10, 60)); setFm('e3Release', rIn(15, 80));
   },
   filter() {
     rSet('cutoff', rIn(25, 75)); rSet('reso', rIn(0, 85)); rSet('vcfSrc', chance(0.8) ? 1 : 0); rSet('vcfMod', rIn(10, 80));

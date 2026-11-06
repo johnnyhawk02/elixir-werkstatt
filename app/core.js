@@ -101,8 +101,10 @@ function setValue(par, v) {
   if (par === PAR.TARGET_LFO1) send({ type: 'param', par: PAR.VOICE_LFO1, value: 1 });
 }
 
-// ---- the note sequence: four pages of 16 steps, played in turn a bar each; each step a degree of the scale (0 the root, up two octaves and more), a gate (0 rests, 1-4
-// a quarter to all of the step, 5 rings), an accent and a slide into the next; root and scale say which notes those are ----
+// ---- the sequence: four pages of 16 steps, played in turn a bar each. Each step has two gates, ga and gb (0 rests,
+// 1-4 a quarter to all of the step, 5 holds on to the next; the envelopes choose which gate fires them), and two
+// pitches, pa for vco a and pb for vco b, each a degree of the scale (0 the root, up two octaves); root and scale say
+// which notes those are ----
 const SCALES = [['major', [0, 2, 4, 5, 7, 9, 11]], ['minor', [0, 2, 3, 5, 7, 8, 10]], ['dorian', [0, 2, 3, 5, 7, 9, 10]],
   ['phrygian', [0, 1, 3, 5, 7, 8, 10]], ['mixolyd', [0, 2, 4, 5, 7, 9, 10]], ['harm min', [0, 2, 3, 5, 7, 8, 11]],
   ['pent min', [0, 3, 5, 7, 10]], ['pent maj', [0, 2, 4, 7, 9]], ['blues', [0, 3, 5, 6, 7, 10]], ['chromatic', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]];
@@ -115,16 +117,19 @@ const OCT_MIN = -2, OCT_MAX = 2;
 // but nothing is heard of them
 const MORPH_DESTS = [['cutoff', 'cutoff'], ['pwm', 'pwm'], ['vco mod', 'vcoMod'], ['vcf mod', 'vcfMod'], ['reso', 'reso'], ['drive', 'drive'], ['fm amt', 'fm']];
 const SEQ0 = { root: 0, scale: 1, oct: 0, density: 100, len: 64, accent: 6, glide: 35, vel: 100, algo: 8, morph: 0,
-  steps: [[0, 4, 1, 0], [0, 2, 0, 0], [7, 3, 0, 1], [8, 4, 0, 0], [0, 0, 0, 0], [3, 3, 1, 0], [0, 2, 0, 0], [5, 4, 0, 1],
-    [4, 4, 0, 0], [0, 2, 1, 0], [0, 0, 0, 0], [7, 3, 0, 0], [6, 4, 1, 1], [7, 4, 0, 0], [2, 2, 0, 0], [0, 3, 0, 0]].map(([d, gate, acc, slide]) => ({ d, gate, acc: !!acc, slide: !!slide })) };
+  steps: [[0, 4, 0], [0, 2, 0], [7, 3, 0], [8, 4, 0], [0, 0, 0], [3, 3, 0], [0, 2, 0], [5, 4, 0],
+    [4, 4, 0], [0, 2, 0], [0, 0, 0], [7, 3, 0], [6, 4, 0], [7, 4, 0], [2, 2, 0], [0, 3, 0]].map(([d, gate]) => ({ d, gate })) };
 const PAGES = 4, NSTEPS = PAGES * 16;
+// a step from before the two gates and pitches (one note: d, gate) plays its note on both VCOs, on both gates
+const stepUp = (st) => (st.ga === undefined ? { ga: st.gate || 0, gb: st.gate || 0, pa: st.d || 0, pb: st.d || 0, w: st.w, m: st.m || 0 } : { ...st });
 // a sequence with fewer pages (one, from before there were four) is repeated to fill them, so it plays as it did
-const fillPages = (steps) => Array.from({ length: NSTEPS }, (_, i) => ({ ...steps[i % steps.length] }));
+const fillPages = (steps) => Array.from({ length: NSTEPS }, (_, i) => stepUp(steps[i % steps.length]));
 SEQ0.steps = fillPages(SEQ0.steps);
 const seq = structuredClone(SEQ0);
 // a degree's semitones above the root's C, moved by the octave buttons (the note heard: the voice's coarse, plus this, plus pitch)
 const degSemis = (d, sc = seq.scale, root = seq.root, oct = seq.oct) => { const s = SCALES[sc][1]; return root + 12 * oct + s[d % s.length] + 12 * Math.floor(d / s.length); };
-const stepNote = (st) => ws.note + degSemis(st.d);
+// the notes a step plays: vco a (the modulator, wsB) and vco b (the main voice, ws)
+const stepNoteA = (st) => wsB.note + degSemis(st.pa), stepNoteB = (st) => ws.note + degSemis(st.pb);
 let playing = false, tempo = 120;
 // density: each step has a weight, w, 0 to 99 (the randomisers deal them out at random); as the density comes down
 // from 100, the steps weighted under 100 - density drop out, the lowest first, until at 0 even a 99 is gone. A step
@@ -132,7 +137,7 @@ let playing = false, tempo = 120;
 // the off-beat 16ths low
 const DENSITY_ORDER = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
 const stepWeight = (st, s) => (Number.isFinite(st.w) ? st.w : Math.round(99 - DENSITY_ORDER.indexOf(s % 16) * 99 / 15));
-const thinned = () => seq.steps.map((st, s) => s < seq.len && st.gate > 0 && stepWeight(st, s) < 100 - seq.density);
+const thinned = () => seq.steps.map((st, s) => s < seq.len && (st.ga > 0 || st.gb > 0) && stepWeight(st, s) < 100 - seq.density);
 // the metronome (on the main page): a click on each beat while playing, high on the bar's first; a setting of this
 // browser's, not of the preset, and not in a recording
 const METRO_KEY = 'elixir-werkstatt-metro';
@@ -140,8 +145,8 @@ let metroOn = store.get(METRO_KEY) === '1';
 function sendSeq() {
   const thin = thinned();
   const md = MORPH_DESTS[seq.morph - 1];
-  send({ type: 'seq', playing, metro: metroOn, len: seq.len, bpm: tempo, vel: seq.vel, glide: seq.glide / 100, accentDb: seq.accent, morph: md ? md[1] : null,
-    steps: seq.steps.map((st, s) => ({ n: degSemis(st.d), gate: thin[s] ? 0 : st.gate, acc: st.acc, slide: st.slide, m: (st.m || 0) / 100 })) });
+  send({ type: 'seq', playing, metro: metroOn, len: seq.len, bpm: tempo, morph: md ? md[1] : null,
+    steps: seq.steps.map((st, s) => ({ na: degSemis(st.pa), nb: degSemis(st.pb), ga: thin[s] ? 0 : st.ga, gb: thin[s] ? 0 : st.gb, m: (st.m || 0) / 100 })) });
 }
 
 // ---- effects and master: echo, reverb and ring mod sends; the echo's tone, feedback and ping pong are the engine's own
@@ -248,7 +253,6 @@ async function restartAudio() {
 function sendAll() {
   send({ type: 'kit', values: effValues() });
   sendWs(); sendWsB(); sendFm();
-  send({ type: 'pitch', v: macro.pitch });
   send({ type: 'delay', pos: delayPos });
   sendMix(); sendSeq();
 }

@@ -38,7 +38,10 @@ const RANDOM_VOICE = {
     rSet('vcoMod', vib ? rIn(2, 25) : 0); rSet('vcoSrc', vib && chance(0.4) ? 1 : 0); rSet('glide', chance(0.3) ? rIn(5, 40) : 0);
   },
   shape() {
-    rSet('attack', chance(0.75) ? rIn(0, 8) : rIn(8, 50)); rSet('decay', rIn(20, 80)); rSet('sustain', chance(0.3) ? 1 : 0); rSet('vcaMode', 0);
+    // the three envelopes (their gates stay): env 2 on vco b's VCA, env 1 on vco a's, env 3 on the filters
+    rSet('attack', chance(0.75) ? rIn(0, 8) : rIn(8, 50)); rSet('decay', rIn(20, 80)); rSet('vcaMode', 0);
+    setWsB('attack', chance(0.75) ? rIn(0, 8) : rIn(8, 50)); setWsB('decay', rIn(10, 80));
+    setFm('e3Attack', chance(0.7) ? rIn(0, 10) : rIn(10, 60)); setFm('e3Release', rIn(15, 80));
   },
   filter() {
     rSet('cutoff', rIn(25, 75)); rSet('reso', rIn(0, 85)); rSet('vcfSrc', chance(0.8) ? 1 : 0); rSet('vcfMod', rIn(10, 80));

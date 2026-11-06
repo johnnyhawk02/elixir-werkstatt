@@ -35,7 +35,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   // no perf dials: one slim top line (title, metronome, play, the tempo dial) over the pages; the sixteen note steps in one line
   check(await pg.evaluate(() => { const r = [...document.querySelectorAll('#m-perf .m-dial')].map((e) => e.getBoundingClientRect()), top = document.querySelector('.m-top').getBoundingClientRect();
     const pages = $('m-pages').getBoundingClientRect(), p = $('m-play').getBoundingClientRect();
-    const s = [...document.querySelectorAll('#m-steps .m-step')].map((e) => e.getBoundingClientRect());
+    const s = [...document.querySelectorAll('#m-pb .m-step')].map((e) => e.getBoundingClientRect());
     return r.length === 1 && r[0].left >= p.right && r[0].bottom <= pages.top + 1 && top.height < $('m').getBoundingClientRect().height * 0.12 && s.length === 16 && s.every((b) => Math.abs(b.top - s[0].top) < 1); }), 'one tempo dial in the slim top line, and the steps are one line');
   // no randomise button or popup: the main page has the randomisers
   check(await pg.evaluate(() => !$('m-rnd') && !$('m-rnd-open')), 'no randomise popup');
@@ -75,13 +75,13 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   // length on the main page is the seq page's length
   await pg.evaluate(() => { seq.len = 64; drawAll(); });
   { const r = await box('#m-mlen .m-vf:nth-child(3) .m-vtrack'); await drag(r.x + r.width / 2, r.y + 4, r.x + r.width / 2, r.y + 4 + r.height * (64 - 33) / 63, 6); }
-  check(await pg.evaluate(() => seq.len === 32 && document.querySelector('#m-seqf .m-vf:nth-child(4) output').textContent === '32'), `main: the length fader sets the seq's length (${await pg.evaluate(() => seq.len)})`);
+  check(await pg.evaluate(() => seq.len === 32 && document.querySelector('#m-seqf .m-vf:nth-child(3) output').textContent === '32'), `main: the length fader sets the seq's length (${await pg.evaluate(() => seq.len)})`);
   await pg.evaluate(() => { seq.len = 64; sendSeq(); drawAll(); });
   // algo and density there are the seq page's too
   await pg.evaluate(() => { seq.algo = 0; seq.density = 100; drawAll(); });
   await pg.focus('#m-mlen .m-vf:nth-child(1) .m-vtrack'); await pg.keyboard.press('ArrowUp');
   await pg.focus('#m-mlen .m-vf:nth-child(2) .m-vtrack'); await pg.keyboard.press('ArrowDown');
-  check(await pg.evaluate(() => seq.algo === 1 && seq.density === 95 && document.querySelector('#m-seqf .m-vf:nth-child(5) output').textContent === '95%'
+  check(await pg.evaluate(() => seq.algo === 1 && seq.density === 95 && document.querySelector('#m-seqf .m-vf:nth-child(4) output').textContent === '95%'
     && document.querySelector('#m-mlen .m-vf:nth-child(1) output').textContent === SEQ_ALGOS[1][0]), 'main: algo and density faders set the seq\'s');
   await pg.evaluate(() => { seq.algo = 0; seq.density = 100; sendSeq(); drawAll(); });
   // the metronome: a toggle kept in this browser; the player clicks on each beat with it on, and is silent with it off
@@ -98,7 +98,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('[data-m-tab="voice"]');
   check(await pg.evaluate(() => document.querySelectorAll('#m-vsec .m-btn').length === 2 && [...document.querySelectorAll('.m-vtab')].every((t) => {
     const [a, b] = [...t.querySelectorAll('.m-vpart')].map((e) => e.getBoundingClientRect()); return !b || (Math.abs(a.top - b.top) < 1 && a.right <= b.left + 1); })
-    && [...document.querySelectorAll('.m-vset')].length === 8), 'voice: panel and xtra tabs, sections side by side');
+    && [...document.querySelectorAll('.m-vset')].length === 10), 'voice: panel and xtra tabs, sections side by side');
   // the voice's randomisers, down the right of the voice page: a section's button changes only that section and shows its tab
   check(await pg.evaluate(() => { const v = document.querySelector('.m-voice-card .m-vbtns').getBoundingClientRect(), s = $('m-vsets').getBoundingClientRect(); return v.left >= s.right; }), 'voice: the randomisers sit on the right');
   {
@@ -114,7 +114,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   }
   // the seq page's random, alter and undo: a column down the right, as on the voice and fx pages
   await pg.click('[data-m-tab="seq"]');
-  check(await pg.evaluate(() => { const c = document.querySelector('.m-seqpage > .m-vbtns').getBoundingClientRect(); return ['.m-npages', '#m-steps', '.m-seqlow'].every((q) => document.querySelector(q).getBoundingClientRect().right <= c.left); }), 'seq: random, alter and undo sit on the right');
+  check(await pg.evaluate(() => { const c = document.querySelector('.m-seqpage > .m-vbtns').getBoundingClientRect(); return ['.m-npages', '#m-pb', '.m-seqlow'].every((q) => document.querySelector(q).getBoundingClientRect().right <= c.left); }), 'seq: random, alter and undo sit on the right');
   // the fx page's randomisers, down its right: one effect's button changes only that effect; undo puts it back
   await pg.click('[data-m-tab="fx"]');
   {
@@ -171,26 +171,28 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('#m-fs-slide');
   await pg.click('#m-fs-close');
   check(await pg.evaluate(() => mFaders.find((f) => f.key === 'm-voice-tone:freq').seq.vals.some((v) => v)), 'randomise fills its steps');
-  // the note grid: the bottom of a step's gate rests it; a tap on its A accents it
+  // the lanes: the bottom of a gate step rests it, the top holds it; a tap high on a pitch step sets a high note
   await pg.click('[data-m-tab="seq"]');
-  r = await box('.m-gstep >> nth=1');
+  check(await pg.evaluate(() => ['m-ga', 'm-gb', 'm-pa', 'm-pb'].every((id) => $(id).children.length === 16) && [...document.querySelectorAll('.m-lane > b')].slice(0, 4).map((e) => e.textContent).join() === 'gate a,gate b,pitch a,pitch b'), 'seq: four lanes, gate a, gate b, pitch a, pitch b');
+  r = await box('#m-ga .m-gstep >> nth=1');
   await pg.mouse.click(r.x + r.width / 2, r.y + r.height - 3);
-  await pg.click('.m-step >> nth=2 >> .m-sm .a');
-  check(await pg.evaluate((a) => seq.steps[1].gate === 0 && seq.steps[2].acc, 0), 'steps edit: a gate rested, an accent set');
-  r = await box('.m-gstep >> nth=3');
+  check(await pg.evaluate(() => seq.steps[1].ga === 0), 'a gate a step rested');
+  r = await box('#m-gb .m-gstep >> nth=3');
   await pg.mouse.click(r.x + r.width / 2, r.y + 3);
-  check(await pg.evaluate(() => seq.steps[3].gate === 5 && $('m-gates').children[3].textContent === 'ring'), 'the top of a gate rings');
-  // a drag along the S row slides every step it crosses
-  await pg.evaluate(() => { for (let i = 4; i < 9; i++) seq.steps[i].slide = false; nsDraw(); });
-  const s4 = await box('.m-step >> nth=4 >> .m-sm .s'), s8 = await box('.m-step >> nth=8 >> .m-sm .s');
-  await pg.mouse.move(s4.x + s4.width / 2, s4.y + s4.height / 2); await pg.mouse.down();
-  await pg.mouse.move(s8.x + s8.width / 2, s8.y + s8.height / 2, { steps: 8 }); await pg.mouse.up();
-  check(await pg.evaluate(() => [4, 5, 6, 7, 8].every((i) => seq.steps[i].slide)), 'a drag along the S row slides the steps');
+  check(await pg.evaluate(() => seq.steps[3].gb === 5 && $('m-gb').children[3].textContent === 'hold'), 'the top of a gate b step holds');
+  r = await box('#m-pa .m-sbar >> nth=2');
+  await pg.mouse.click(r.x + r.width / 2, r.y + 2);
+  check(await pg.evaluate(() => seq.steps[2].pa === degMax()), 'the top of a pitch a step is two octaves up');
+  // a drag along pitch b sets each step it crosses
+  const pb4 = await box('#m-pb .m-sbar >> nth=4'), pb8 = await box('#m-pb .m-sbar >> nth=8');
+  await pg.mouse.move(pb4.x + pb4.width / 2, pb4.y + pb4.height - 2); await pg.mouse.down();
+  await pg.mouse.move(pb8.x + pb8.width / 2, pb8.y + pb8.height - 2, { steps: 8 }); await pg.mouse.up();
+  check(await pg.evaluate(() => [4, 5, 6, 7, 8].every((i) => seq.steps[i].pb === 0)), 'a drag along pitch b sets the steps');
   // pages: page 2's steps are steps 17 to 32; copy makes pages 2 to 4 page 1 with a few steps changed
   await pg.click('#m-npages [data-page="1"]');
-  r = await box('.m-gstep >> nth=5');
+  r = await box('#m-ga .m-gstep >> nth=5');
   await pg.mouse.click(r.x + r.width / 2, r.y + r.height - 3);
-  check(await pg.evaluate(() => seq.steps.length === 64 && seq.steps[21].gate === 0), 'page 2 edits its own steps');
+  check(await pg.evaluate(() => seq.steps.length === 64 && seq.steps[21].ga === 0), 'page 2 edits its own steps');
   // shift: right moves every step one later (the last wraps to the first), left puts it back
   const sh0 = await pg.evaluate(() => JSON.stringify(seq.steps.slice(0, seq.len)));
   await pg.click('#m-nshift-r');
@@ -198,39 +200,30 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('#m-nshift-l');
   check(await pg.evaluate((sh0) => JSON.stringify(seq.steps.slice(0, seq.len)) === sh0, sh0), 'shift left puts it back');
   // octave buttons: the whole sequence moves an octave, held to -2 .. +2; the top of a step is two octaves up
-  const n0 = await pg.evaluate(() => degSemis(seq.steps[0].d));
+  const n0 = await pg.evaluate(() => degSemis(seq.steps[0].pb));
   await pg.click('#m-noct-up');
-  check(await pg.evaluate((n0) => seq.oct === 1 && degSemis(seq.steps[0].d) === n0 + 12 && $('m-noct-out').textContent === '+1', n0), 'oct + moves the sequence up an octave');
+  check(await pg.evaluate((n0) => seq.oct === 1 && degSemis(seq.steps[0].pb) === n0 + 12 && $('m-noct-out').textContent === '+1', n0), 'oct + moves the sequence up an octave');
   for (let k = 0; k < 4; k++) await pg.click('#m-noct-dn', { force: true });
   check(await pg.evaluate(() => seq.oct === -2 && $('m-noct-dn').disabled), 'oct - stops at two down');
   await pg.evaluate(() => { seq.oct = 0; sendSeq(); nsDraw(); });
   check(await pg.evaluate(() => degSemis(degMax()) - degSemis(0) === 24), 'a step covers two octaves');
-  // the S under a step switches its slide in any mode (here gate), and the A its accent
-  const s0 = await pg.evaluate(() => [seq.steps[16 + 6].slide, seq.steps[16 + 6].acc, seq.steps[16 + 6].gate]);
-  await pg.click('.m-step >> nth=6 >> .m-sm .s'); await pg.click('.m-step >> nth=6 >> .m-sm .a');
-  check(await pg.evaluate((s0) => { const st = seq.steps[16 + 6]; return st.slide === !s0[0] && st.acc === !s0[1] && st.gate === s0[2]; }, s0), 'the A and S under a step switch its accent and slide');
-  // a tap just above the S (within half its height) still switches the slide
-  const sl = await pg.evaluate(() => seq.steps[16 + 9].slide);
-  r = await box('.m-step >> nth=9 >> .m-sm .s');
-  await pg.mouse.click(r.x + r.width / 2, r.y - r.height * 0.3);
-  check(await pg.evaluate((sl) => seq.steps[16 + 9].slide === !sl, sl), 'a tap just above the S still switches slide');
   // density: each step's weight (0-99) against it: at 50 the steps weighted under 50 drop out, at 0 every one, at 100 none
-  check(await pg.evaluate(() => { const was = seq.density, ws = seq.steps.map((x, s) => stepWeight(x, s)), on = (s) => s < seq.len && seq.steps[s].gate;
+  check(await pg.evaluate(() => { const was = seq.density, ws = seq.steps.map((x, s) => stepWeight(x, s)), on = (s) => s < seq.len && (seq.steps[s].ga || seq.steps[s].gb);
     const at = (d) => { seq.density = d; return thinned(); };
     const half = at(50).every((t, s) => t === !!(on(s) && ws[s] < 50)), none = at(0).every((t, s) => t === !!on(s)), all = !at(100).some(Boolean);
     seq.density = was; return half && none && all; }), 'density drops the steps weighted under 100 - density');
   check(await pg.evaluate(() => { randomPage(1); return seq.steps.slice(16, 32).every((x) => Number.isInteger(x.w) && x.w >= 0 && x.w <= 99); }), 'random gives every step a weight 0 to 99');
-  // morph: the morph button swaps the gate lane for the morph lane; the top of a step there sets 100, and the morph
+  // morph: the morph button shows the morph lane under the others; the top of a step there sets 100, and the morph
   // fader (off by default) names the parameter it moves
   await pg.click('#m-nlane');
-  check(await pg.evaluate(() => $('m-gates').hidden && !$('m-morphs').hidden && $('m-nlane').textContent === 'gates'), 'the morph button shows the morph lane');
+  check(await pg.evaluate(() => !$('m-mlane').hidden && $('m-nlane').getAttribute('aria-pressed') === 'true'), 'the morph button shows the morph lane');
   {
     const b = await pg.locator('#m-morphs .m-step').nth(5).boundingBox();
     await pg.mouse.click(b.x + b.width / 2, b.y + 2);
   }
   check(await pg.evaluate(() => seq.steps[16 + 5].m === 100 && seq.morph === 0), 'the top of a morph step sets 100, the morph still off');
   await pg.click('#m-nlane');
-  check(await pg.evaluate(() => !$('m-gates').hidden && $('m-morphs').hidden), 'and back to the gate lane');
+  check(await pg.evaluate(() => $('m-mlane').hidden), 'and hides it again');
   // copy, on page 2: 'copy to 3' puts page 2 onto page 3 exactly and shows page 3; on page 4 it's off
   check(await pg.textContent('#m-ncopy') === 'copy to 3', 'on page 2 the copy button says copy to 3');
   await pg.click('#m-ncopy');
@@ -242,8 +235,8 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   check(await pg.evaluate((p4) => JSON.stringify(seq.steps.slice(48, 64)) === p4, p4), 'copy can be undone');
   // every algorithm makes a valid page
   check(await pg.evaluate(() => SEQ_ALGOS.every((_, a) => { seq.algo = a; for (let k = 0; k < 100; k++) { randomPage(1); const p = seq.steps.slice(16, 32);
-    if (p.some((x) => !(x.d >= 0 && x.d <= degMax() && x.gate >= 0 && x.gate <= 5)) || !p.some((x) => x.gate)) return false; } return true; })), 'all ten algorithms make valid pages');
-  check(await pg.evaluate(() => { seq.algo = SEQ_ALGOS.findIndex((a) => a[0] === 'patternz'); const seen = new Set(); for (let k = 0; k < 50; k++) { randomNotes(); if (seq.steps.some((x) => !(x.d >= 0 && x.d <= degMax() && Number.isInteger(x.w)))) return false; seen.add(JSON.stringify(seq.steps)); } return PATTERNZ.length > 100 && seen.size === 50; }), 'patternz fills all four pages with fresh cut-ups');
+    if (p.some((x) => ![x.pa, x.pb].every((d) => d >= 0 && d <= degMax()) || ![x.ga, x.gb].every((g) => g >= 0 && g <= 5)) || !p.some((x) => x.ga) || !p.some((x) => x.gb)) return false; } return true; })), 'all ten algorithms make valid pages');
+  check(await pg.evaluate(() => { seq.algo = SEQ_ALGOS.findIndex((a) => a[0] === 'patternz'); const seen = new Set(); for (let k = 0; k < 50; k++) { randomNotes(); if (seq.steps.some((x) => !(x.pb >= 0 && x.pb <= degMax() && x.pa >= 0 && x.pa <= degMax() && Number.isInteger(x.w)))) return false; seen.add(JSON.stringify(seq.steps)); } return PATTERNZ.length > 100 && seen.size === 50; }), 'patternz fills all four pages with fresh cut-ups');
   await pg.evaluate(() => { seq.algo = 0; });
   await pg.click('#m-npages [data-page="0"]');
   // the space bar starts and stops
@@ -255,12 +248,12 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('#m-nrand');
   check(await pg.isEnabled('#m-nalter ~ [data-undo]'), 'random notes can be undone');
   check(await pg.evaluate((b) => { const was = JSON.parse(b); return [0, 1, 2, 3].every((pg) => JSON.stringify(seq.steps.slice(pg * 16, pg * 16 + 16)) !== JSON.stringify(was.slice(pg * 16, pg * 16 + 16))); }, seqBefore), 'random renews every page');
-  check(await pg.evaluate(() => { const p = (k) => JSON.stringify(seq.steps.slice(k * 16, k * 16 + 16).map((x) => [x.d, x.gate])); return new Set([0, 1, 2, 3].map(p)).size === 4; }), 'each page gets its own pattern');
+  check(await pg.evaluate(() => { const p = (k) => JSON.stringify(seq.steps.slice(k * 16, k * 16 + 16).map((x) => [x.pb, x.ga])); return new Set([0, 1, 2, 3].map(p)).size === 4; }), 'each page gets its own pattern');
   // play runs the steps
   await pg.keyboard.press('Space'); await pg.waitForTimeout(1200);
-  check(await pg.evaluate(() => document.querySelectorAll('.m-step.now').length === 1), 'playing lights the step');
+  check(await pg.evaluate(() => document.querySelectorAll('#m-pb .m-step.now').length === 1 && document.querySelectorAll('#m-ga .m-step.now').length === 1), 'playing lights the step');
   // length: a drag on its fader catches at 32; at 20 steps the playing stays on pages 1 and 2, and steps past it fade
-  r = await box('#m-seqf .m-vtrack >> nth=3');
+  r = await box('#m-seqf .m-vtrack >> nth=2');
   await pg.evaluate(() => { seq.len = 64; drawAll(); });
   const dy = r.height * (64 - 33) / 63;
   await drag(r.x + r.width / 2, r.y + 4, r.x + r.width / 2, r.y + 4 + dy, 6);
@@ -270,7 +263,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.waitForTimeout(3500);
   check(await pg.evaluate(() => __maxpos === 19 && __pages.size === 2), 'at length 20 the sequence loops after step 20');
   await pg.click('#m-npages [data-page="1"]');
-  check(await pg.evaluate(() => $('m-steps').children[4].classList.contains('out') && !$('m-steps').children[3].classList.contains('out') && document.querySelector('#m-npages [data-page="2"]').classList.contains('out')), 'steps and pages past the length fade');
+  check(await pg.evaluate(() => $('m-pb').children[4].classList.contains('out') && !$('m-pb').children[3].classList.contains('out') && document.querySelector('#m-npages [data-page="2"]').classList.contains('out')), 'steps and pages past the length fade');
   await pg.click('#m-npages [data-page="0"]');
   await pg.evaluate(() => { seq.len = 64; sendSeq(); drawAll(); });
   // presets: load a built-in one, save a new one

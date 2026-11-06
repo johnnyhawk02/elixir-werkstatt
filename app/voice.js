@@ -1,6 +1,6 @@
 // ---- voice: laid out like the DFAM's panel. The panel tab has the two voices as the DFAM has its two VCOs: VCO A
-// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, then VCO B's VCF and its EG/VCA. VCO B is the main
-// voice (the perf dials, randomisers and morph act on it). Inside, the main voice is still state `ws` / engine voice
+// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, VCO B's VCF, then the three AR envelopes. VCO B is the
+// main voice (the randomisers and morph act on it). Inside, the main voice is still state `ws` / engine voice
 // `a`, and VCO A (the modulator) is `wsB` / engine `b`, so presets keep their meaning; only the panel names differ.
 // The xtra tab has the rest: VCO A's other knobs, the FM's switches, and everything else of VCO B ----
 // every Werkstatt knob, for the randomisers
@@ -16,12 +16,16 @@ const VP_TABS = [
     ['vco b', 'm-voice-tone', A_('note', 'wave', 'pwm')],
     ['mixer', 'm-voice-mix', [['fm', 'levelB', 'vco a'], ['fm', 'levelA', 'vco b']]],
     ['vcf', 'm-voice-filter', A_('cutoff', 'reso', 'vcfMod')],
-    ['eg / vca', 'm-voice-shape', A_('attack', 'decay', 'sustain', 'volume')]]],
+    // the three AR envelopes: env 1 opens vco a's VCA, env 2 vco b's, env 3 is the mod (vcf mod, and vco mod set to
+    // eg) of both; each with the gate that fires it
+    ['vca a env', 'm-voice-env1', [['b', 'attack'], ['b', 'decay', 'release'], ['fm', 'trig1', 'gate']]],
+    ['vca b env', 'm-voice-shape', [['a', 'attack'], ['a', 'decay', 'release'], ['fm', 'trig2', 'gate']]],
+    ['vcf env', 'm-voice-env3', [['fm', 'e3Attack', 'attack'], ['fm', 'e3Release', 'release'], ['fm', 'trig3', 'gate']]]]],
   ['xtra', 3, [
     ['a', 'm-voice-bx', B_('fine', 'vcoMod', 'vcoSrc', 'glide', 'cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive',
-      'attack', 'decay', 'sustain', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')],
+      'vcaMode', 'volume', 'lfoRate', 'lfoWave')],
     ['fm', 'm-voice-fm', [['fm', 'fmSrc', 'src'], ['fm', 'fmMode', 'mode']]],
-    ['b', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'lfoRate', 'lfoWave')]]]];
+    ['b', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')]]]];
 let mVSec = 0;
 const mVBoxes = VP_TABS.map(([title, rows, secs], k) => {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'm-btn'; b.setAttribute('role', 'tab'); b.textContent = title;

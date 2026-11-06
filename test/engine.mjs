@@ -40,9 +40,10 @@ const drone = () => {
     worst = Math.max(worst, Math.abs(c));
   }
   check(worst < 3, `the Werkstatt is in tune from C1 to A4 (worst ${worst.toFixed(2)} cents; the expo's bulk resistance runs it a little flat up top)`);
-  const p = drone(); p.msg({ type: 'note', n: 0, acc: true, gate: 5 }); const f0 = freqOf(p);
-  p.msg({ type: 'pitch', v: 0.25 }); const c = 1200 * Math.log2(freqOf(p) / f0);
-  check(Math.abs(c - 25) < 1, `pitch +0.25 st is +${c.toFixed(2)} cents`);
+  // each step sets both VCOs' pitches: vco b (the main voice, heard here) a fifth up
+  const p = drone(); p.msg({ type: 'note', na: 0, nb: 0, gate: 5 }); const f0 = freqOf(p);
+  p.msg({ type: 'note', na: 0, nb: 7, gate: 5 }); const c = 1200 * Math.log2(freqOf(p) / f0);
+  check(Math.abs(c - 700) < 3, `a step's pitch b of +7 is +${c.toFixed(1)} cents on vco b`);
 }
 // voice B into voice A: with the FM off and B at level 0, B isn't run and A sounds as it did alone; FM (expo or linear,
 // from B's VCO or its output) changes A's sound and stays finite and sane; B's level brings B in
@@ -65,32 +66,38 @@ const drone = () => {
     check(!r.bad && r.peak < 1.5 && diff(r, off) > 0.01, `${name}: changes the sound, finite and sane (peak ${(20 * Math.log10(r.peak)).toFixed(1)} dB)`);
   }
 }
-// the sequencer
+// the sequencer: two gate lanes and two pitch lanes. Gates open on their steps and close after their times; each
+// envelope follows the gate it's set to (by default env 2, vco b's VCA, on gate a; env 1, vco a's, on gate b; env 3,
+// the filters', on either); each step sets both pitches
 {
-  const p = new Player(LXR.REAL_FS), hits = [];
-  const on = p.w.noteOn.bind(p.w);
-  p.w.noteOn = (off, gate) => { hits.push([p.step, Math.round(off)]); on(off, gate); };
-  const S = (n, gate, acc, slide) => ({ n, gate, acc, slide });
-  const steps = [S(0, 4, 1, 0), S(2, 0, 0, 0), S(3, 4, 0, 1), S(5, 4, 0, 0), S(7, 1, 0, 0), ...Array.from({ length: 11 }, () => S(0, 0, 0, 0))];
-  p.msg({ type: 'seq', playing: true, bpm: 120, vel: 100, glide: 0.5, accentDb: 6, steps });
+  const p = new Player(LXR.REAL_FS), gates = [], offs = [];
+  const gt = p.w.gate.bind(p.w), so = p.w.setOffsets.bind(p.w);
+  p.w.gate = (l, on) => { if (on) gates.push([p.step, 'ab'[l]]); gt(l, on); };
+  p.w.setOffsets = (a, b) => { offs.push([Math.round(a), Math.round(b)]); so(a, b); };
+  const S = (ga, gb, na = 0, nb = 0) => ({ ga, gb, na, nb, m: 0 });
+  const steps = [S(4, 0, 0, 0), S(0, 2, 5, 3), S(1, 1, 7, 2), ...Array.from({ length: 13 }, () => S(0, 0))];
+  p.msg({ type: 'seq', playing: true, bpm: 120, steps });
   const len = LXR.REAL_FS * 60 / 120 / 4;
-  let let_go = false, slid = false;
-  for (let b = 0; b < Math.ceil(16 * len / 64); b++) {
+  let env2Early = false, env1On = false, env2OnB = false, env3B = false;
+  for (let b = 0; b < Math.ceil(4 * len / 64); b++) {
     p._render(p.A);
-    if (p.slideFrom !== null) slid = true;
-    if (p.step === 5 && p.toNext < len * 0.3 && p.w.a.eg.stage === 3) let_go = true;
+    if (p.step === 2 && p.toNext > 0 && p.w.b.eg.stage !== 0) env1On = true;
+    if (p.step === 2 && p.toNext > len * 0.6 && (p.w.a.eg.stage === 1 || p.w.a.eg.stage === 2)) env2OnB = true;
+    if (p.step === 2 && p.toNext > len * 0.6 && (p.w.e3.stage === 1 || p.w.e3.stage === 2)) env3B = true;
+    if (p.step === 3 && p.toNext < len * 0.3 && p.w.a.eg.stage === 3) env2Early = true;
   }
-  check(JSON.stringify(hits) === JSON.stringify([[0, 0], [2, 3], [4, 7]]), `steps 0, 2 and 4 open the gate; the rest and the slid-into step don't (${JSON.stringify(hits)})`);
-  check(slid, 'step 2 slides into step 3');
-  check(let_go, 'a quarter gate lets the EG go before its step is out');
+  check(JSON.stringify(gates.slice(0, 4)) === JSON.stringify([[0, 'a'], [1, 'b'], [2, 'a'], [2, 'b']]), `the gates open on their steps (${JSON.stringify(gates.slice(0, 4))})`);
+  check(JSON.stringify(offs.slice(0, 3)) === '[[0,0],[5,3],[7,2]]', `each step sets both pitches (${JSON.stringify(offs.slice(0, 3))})`);
+  check(env1On && env3B && !env2OnB, 'gate b fires env 1 and env 3, not env 2');
+  check(env2Early, 'a quarter gate lets its envelope go before its step is out');
 }
 // four pages: they play in turn, a bar each, then page 1 again
 {
   const p = new Player(LXR.REAL_FS), hits = [];
-  const on = p.w.noteOn.bind(p.w);
-  p.w.noteOn = (off, gate) => { hits.push(Math.round(off)); on(off, gate); };
-  const steps = Array.from({ length: 64 }, (_, i) => ({ n: Math.floor(i / 16), gate: i % 16 === 0 ? 4 : 0, acc: false, slide: false }));
-  p.msg({ type: 'seq', playing: true, bpm: 120, vel: 100, glide: 0.5, accentDb: 6, steps });
+  const so = p.w.setOffsets.bind(p.w);
+  p.w.setOffsets = (a, b) => { if (p.step % 16 === 0) hits.push(Math.round(b)); so(a, b); };
+  const steps = Array.from({ length: 64 }, (_, i) => ({ na: 0, nb: Math.floor(i / 16), ga: i % 16 === 0 ? 4 : 0, gb: 0, m: 0 }));
+  p.msg({ type: 'seq', playing: true, bpm: 120, steps });
   for (let b = 0; b < Math.ceil(LXR.REAL_FS * 2 * 4.5 / 64); b++) p._render(p.A);
   check(JSON.stringify(hits) === '[0,1,2,3,0]', `four pages play in turn (${JSON.stringify(hits)})`);
 }

@@ -4,7 +4,7 @@
 // the tempo-synced echo: 1/128 of a bar at 0, a whole bar at 1, evenly in octaves between
 const delaySamples = (pos, bpm) => 240 / bpm * Math.pow(2, -7 * (1 - pos)) * LXR.REAL_FS;
 const RING_MAKEUP = 3;
-// a step's gate: 0 rests, 1 to 4 close after a quarter to all of the step, 5 lets the note ring out
+// a step's gate (on each gate lane): 0 rests, 1 to 4 close after a quarter to all of the step, 5 holds it on to the next
 const GATE_RING = 5;
 // a sample into the engine's int16 buses, saturated
 const int16 = (x) => Math.max(-32768, Math.min(32767, Math.round(x)));
@@ -23,26 +23,24 @@ class Player {
     this.w = new LXR.WerkstattPair(LXR.REAL_FS, this.seed);
     // ws: the Werkstatt's knobs as the page set them (the morph moves one of them from here)
     this.ws = { ...LXR.WS_DEFAULTS }; this.fm = { ...LXR.FM_DEFAULTS };
-    this.gateOpen = false;
     this.ratio = LXR.REAL_FS / outRate;
     this.A = [new Float32Array(64), new Float32Array(64)];
     this.B = [new Float32Array(64), new Float32Array(64)];
     this.idx = 0; this.frac = 0;
-    // the sequence: 16 steps a page (up to 4 pages) of { n: semitones from middle C, gate, acc, slide }
-    this.steps = Array.from({ length: 16 }, () => ({ n: 0, gate: 0, acc: false, slide: false }));
-    this.playing = false; this.bpm = 120; this.vel = 100; this.accGain = 0.5; this.glide = 0.35;
+    // the sequence: 16 steps a page (up to 4 pages) of { na, nb: the two VCOs' pitches, semitones from their base notes;
+    // ga, gb: gates A and B; m: the morph value }
+    this.steps = Array.from({ length: 16 }, () => ({ na: 0, nb: 0, ga: 0, gb: 0, m: 0 }));
+    this.playing = false; this.bpm = 120;
     this.len = 16; this.pos = 0;
     this.step = 0; this.bar = 0; this.toNext = 0; this.atBar = []; this.clock = 0;
-    // pitch: the perf page's pitch, in semitones (hundredths), added to every note
-    this.pitch = 0;
-    // the note sounding (in semitones from middle C, before pitch), where a slide has it now (cur), its slide and where its gate closes
-    this.note = 0; this.cur = 0; this.slideFrom = null; this.slideAt = 0; this.slideLen = 1; this.cutAt = Infinity;
-    // the voice's gain: the accent (an unaccented note is turned down by the accent amount) times the gate
+    // the two gates: open or not, and when each closes
+    this.gOpen = [false, false]; this.cutAt = [Infinity, Infinity];
+    // the voice's gain (1: kept for the fx sends' scaling)
     this.gain = 1; this.gainTo = 1; this.gate = 1;
     // the morph (off unless the sequence names a Werkstatt knob): each step's morph value (0..1) takes that knob from
-    // the sound's own value (0) to the top (1), set as the step triggers and glided over the slide on a slide into it.
-    // Off, the parameter is put back and nothing here touches the voice
-    this.morphPar = null; this.mCur = 0; this.mFrom = null; this.mTo = 0; this.mSet = null;
+    // the sound's own value (0) to the top (1), set as the step comes round. Off, the parameter is put back and nothing
+    // here touches the voice
+    this.morphPar = null; this.mCur = 0; this.mSet = null;
     this.rec = null;
     // the metronome: a short blip on each beat (clickN counts its samples, -1 silent), added after the recorder
     this.metro = false; this.clickN = -1; this.clickF = 1000;
@@ -73,8 +71,7 @@ class Player {
     else if (m.type === 'ws') { Object.assign(this.ws, m.p); this.w.a.set(this.ws); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
     else if (m.type === 'wsB') this.w.b.set(m.p);
     else if (m.type === 'fm') { Object.assign(this.fm, m.p); this.w.setFm(this.fm); if (this.morphPar !== null) { this.mSet = null; this.setMorph(this.mCur); } }
-    else if (m.type === 'pitch') { this.pitch = m.v; this.setPitch(this.cur); }
-    else if (m.type === 'note') this.play(m.n, m.acc, m.gate, false, m.m || 0);
+    else if (m.type === 'note') this.play({ na: m.na ?? m.n ?? 0, nb: m.nb ?? m.n ?? 0, ga: m.ga ?? m.gate ?? 4, gb: m.gb ?? m.gate ?? 4, m: m.m || 0 });
     else if (m.type === 'delay') this.delayPos = m.pos;
     else if (m.type === 'atBar') { if (this.playing) this.atBar.push(m.m); else this.msg(m.m); }
     else if (m.type === 'mix') {
@@ -94,17 +91,16 @@ class Player {
     else if (m.type === 'seq') {
       // a live change wins over one still waiting for the bar
       this.atBar = this.atBar.filter((q) => q.type !== 'seq');
-      this.metro = !!m.metro; this.steps = m.steps; this.bpm = m.bpm; this.e.bpm = m.bpm; this.vel = m.vel; this.glide = m.glide;
+      this.metro = !!m.metro; this.steps = m.steps; this.bpm = m.bpm; this.e.bpm = m.bpm;
       this.len = Math.max(1, Math.min(this.steps.length, m.len || this.steps.length)); if (this.pos >= this.len) this.pos = 0;
-      this.accGain = Math.pow(10, -m.accentDb / 20);
       const mp = m.morph === undefined ? null : m.morph;
       if (mp !== this.morphPar) {
         if (this.morphPar !== null) this.morphTo(this.morphPar, null);
-        this.morphPar = mp; this.mCur = 0; this.mFrom = null; this.mSet = null;
+        this.morphPar = mp; this.mCur = 0; this.mSet = null;
       }
-      if (m.playing && !this.playing) { this.step = 0; this.pos = 0; this.bar = 0; this.toNext = 0; this.cutAt = Infinity; this.slideFrom = null; this.mFrom = null; }
+      if (m.playing && !this.playing) { this.step = 0; this.pos = 0; this.bar = 0; this.toNext = 0; this.cutAt = [Infinity, Infinity]; }
       this.playing = m.playing;
-      if (!this.playing) { this.flushBar(); this.cutAt = this.clock; }
+      if (!this.playing) { this.flushBar(); this.cutAt = [this.clock, this.clock]; }
     }
   }
   recFlush() {
@@ -118,22 +114,18 @@ class Player {
     const q = this.atBar; this.atBar = [];
     for (const m of q) this.msg(m.type === 'seq' ? { ...m, playing: this.playing } : m);
   }
-  // the voice to semitone n (from the sound's base note) plus pitch, without a new gate
-  setPitch(n) { this.w.setOffset(n + this.pitch); }
-  // a note: the pitch, and a new gate for the EG (it starts from wherever its capacitor is, as on the hardware).
-  // slide: glide there from the note sounding instead, without a new gate. mv: the step's morph value
-  play(n, acc, gate, slide, mv = 0) {
-    if (slide) { this.slideFrom = this.cur; this.slideAt = 0; if (this.morphPar !== null) { this.mFrom = this.mCur; this.mTo = mv; } }
-    else {
-      this.slideFrom = null;
-      if (this.morphPar !== null) { this.mFrom = null; this.mCur = mv; this.setMorph(mv); }
-      this.gainTo = acc ? 1 : this.accGain; this.cur = n;
-      this.w.noteOn(n + this.pitch); this.gateOpen = true;
-    }
-    this.note = n;
+  // a step: both VCOs to its pitches (every step, gate or not, as a sequencer's pitch CVs are), the morph to its
+  // value, and each gate it has opened (a gate held on from the step before is opened again, so its envelopes start
+  // again) to close after its time
+  play(st) {
+    this.w.setOffsets(st.na || 0, st.nb || 0);
+    if (this.morphPar !== null) { this.mCur = st.m || 0; this.setMorph(this.mCur); }
     const len = LXR.REAL_FS * 60 / this.bpm / 4;
-    this.slideLen = Math.max(64, this.glide * len);
-    this.cutAt = gate >= GATE_RING ? Infinity : this.clock + gate / 4 * len;
+    [st.ga, st.gb].forEach((g, l) => {
+      if (!g) return;
+      this.w.gate(l, true); this.gOpen[l] = true;
+      this.cutAt[l] = g >= GATE_RING ? Infinity : this.clock + g / 4 * len;
+    });
   }
   // the morph knob at k (0..1) of the way from the sound's own value to the top; at 0 exactly the sound's value
   setMorph(k) {
@@ -148,15 +140,7 @@ class Player {
     const top = (fm ? LXR.FM_PARAMS : LXR.WS_PARAMS).find((q) => q[0] === par)[4], v = k ? b + (top - b) * k : b;
     if (fm) this.w.setFm({ ...this.fm, [par]: v }); else this.w.a.set({ [par]: v });
   }
-  // step s (of the sequence's len steps): its note, slid into from the step before when that one slides and both play; a step that slides on
-  // keeps its gate open into the next (the sequence wraps at its length)
-  doStep(s) {
-    const S = this.steps, N = this.len, cur = S[s], prev = S[(s + N - 1) % N], next = S[(s + 1) % N];
-    if (!cur.gate) return;
-    const slideIn = prev.slide && prev.gate > 0 && this.cutAt === Infinity && this.gate > 0;
-    this.play(cur.n, cur.acc, cur.slide && next.gate ? GATE_RING : cur.gate, slideIn, cur.m || 0);
-    if (slideIn && cur.acc) this.gainTo = 1;
-  }
+  doStep(s) { this.play(this.steps[s]); }
   _render(dst) {
     if (this.playing) {
       if (this.toNext <= 0) {
@@ -174,17 +158,8 @@ class Player {
       }
       this.toNext -= 64;
     }
-    // a slide: the pitch glides from the note before over the glide time
-    if (this.slideFrom !== null) {
-      this.slideAt += 64;
-      const k = Math.min(1, this.slideAt / this.slideLen);
-      this.cur = this.slideFrom + (this.note - this.slideFrom) * k;
-      this.setPitch(this.cur);
-      if (this.mFrom !== null) { this.mCur = this.mFrom + (this.mTo - this.mFrom) * k; this.setMorph(this.mCur); }
-      if (k >= 1) { this.slideFrom = null; this.cur = this.note; this.mFrom = null; }
-    }
-    // the gate closes: the EG lets go (it runs down at its decay, or holds on with the VCA switched to on)
-    if (this.clock >= this.cutAt && this.gateOpen) { this.w.noteOff(); this.gateOpen = false; }
+    // a gate closes: its envelopes let go (unless the other gate is holding them)
+    for (let l = 0; l < 2; l++) if (this.clock >= this.cutAt[l] && this.gOpen[l]) { this.w.gate(l, false); this.gOpen[l] = false; }
     this.clock += 64;
     // the engine runs for its FX bus; the voice is the Werkstatt's, put where the engine's drum 1 would be heard
     this.e.renderBlock();

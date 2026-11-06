@@ -82,17 +82,19 @@
         <button class="m-btn" type="button" role="tab" data-page="2" aria-selected="false">3</button>
         <button class="m-btn" type="button" role="tab" data-page="3" aria-selected="false">4</button>
         <button class="m-btn" type="button" id="m-ncopy">copy to 2</button>
-        <button class="m-btn" type="button" id="m-nlane" aria-pressed="false" aria-label="show the morph lane under the notes">morph</button>
+        <button class="m-btn" type="button" id="m-nlane" aria-pressed="false" aria-label="show the morph lane">morph</button>
         <span class="m-nshift" role="group" aria-label="shift"><button class="m-btn" type="button" id="m-nshift-l" data-nshift="-1" aria-label="shift the pattern left">←</button><span aria-hidden="true">shift</span><button class="m-btn" type="button" id="m-nshift-r" data-nshift="1" aria-label="shift the pattern right">→</button></span>
         <span class="m-noct" role="group" aria-label="octave"><button class="m-btn" type="button" id="m-noct-dn" aria-label="octave down">oct −</button><output id="m-noct-out">0</output><button class="m-btn" type="button" id="m-noct-up" aria-label="octave up">oct +</button></span>
       </div>
-      <div class="m-steps" id="m-steps" role="grid" aria-label="the sixteen steps of the page"></div>
-      <div class="m-steps m-gates" id="m-gates" role="grid" aria-label="the sixteen steps' gate times"></div>
-      <div class="m-steps m-gates" id="m-morphs" role="grid" aria-label="the sixteen steps' morph values" hidden></div>
+      <div class="m-lane"><b>gate a</b><div class="m-steps m-gates" id="m-ga" role="grid" aria-label="gate a: the sixteen steps' gate times"></div></div>
+      <div class="m-lane"><b>gate b</b><div class="m-steps m-gates" id="m-gb" role="grid" aria-label="gate b: the sixteen steps' gate times"></div></div>
+      <div class="m-lane"><b>pitch a</b><div class="m-steps" id="m-pa" role="grid" aria-label="vco a's pitch on each step"></div></div>
+      <div class="m-lane"><b>pitch b</b><div class="m-steps" id="m-pb" role="grid" aria-label="vco b's pitch on each step"></div></div>
+      <div class="m-lane" id="m-mlane" hidden><b>morph</b><div class="m-steps m-gates" id="m-morphs" role="grid" aria-label="the sixteen steps' morph values"></div></div>
       <div class="m-seqlow">
         <div class="m-faders m-seqf" id="m-seqf"></div>
       </div>
-      <div class="m-vbtns m-seqbtns" role="group" aria-label="randomise the notes">
+      <div class="m-vbtns m-seqbtns" role="group" aria-label="randomise the sequence">
         <button class="m-btn m-big" id="m-nrand" data-nrand type="button">random<small class="m-nalgo" data-nalgo></small></button>
         <button class="m-btn" id="m-nalter" data-nalter type="button">alter</button>
         <button class="m-btn" data-undo type="button" disabled>undo</button>

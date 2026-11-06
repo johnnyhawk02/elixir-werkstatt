@@ -1,10 +1,11 @@
-// ---- the seq page: the note sequencer. Four pages of sixteen steps; length says how many of them play (1 to 64,
-// through the pages in turn). Along the top: the page tabs (the one playing underlined, those past the length faded),
-// copy (the page shown onto the next) and oct - / oct + (the whole sequence an octave). Then the page's sixteen steps:
-// a step's height is its note, two octaves of the scale (a touch on a resting step brings it on), and the A and S under
-// it switch its accent and slide (tap, or drag along the row). Under the notes, a lane of the steps' gate times
-// (bottom rests, then a quarter to all of the step, top rings), or (the morph button) of their morph values. Under that
-// the faders (root, scale, accent, length, density, glide, morph, algo) and random, alter, undo ----
+// ---- the seq page: a gate and pitch sequencer. Four pages of sixteen steps; length says how many of them play (1 to
+// 64, through the pages in turn). Along the top: the page tabs (the one playing underlined, those past the length
+// faded), copy (the page shown onto the next), morph (shows the morph lane), shift and oct - / oct + (both pitch lanes
+// an octave). Then the lanes, each sixteen steps: gate a and gate b (each step's gate time: bottom rests, then a
+// quarter to all of the step, top holds on to the next; the envelopes choose which gate fires them), pitch a and
+// pitch b (vco a's and vco b's pitch on each step, two octaves of the scale, set on every step as a sequencer's pitch
+// CVs are), and the morph values. Under them the faders (root, scale, length, density, morph, algo) and random,
+// alter, undo ----
 let nsPage = 0;
 const nsAbs = (i) => nsPage * 16 + i;
 const nsStep = (i) => seq.steps[nsAbs(i)];
@@ -14,35 +15,27 @@ const nsRow = (id, cls, html) => Array.from({ length: 16 }, (_, i) => {
   const c = document.createElement('div'); c.className = cls; c.dataset.i = i; c.setAttribute('role', 'gridcell');
   c.innerHTML = html; $(id).append(c); return c;
 });
-const nsCells = nsRow('m-steps', 'm-step',
-  '<span class="m-sn"></span><i class="m-sbar"></i><span class="m-sm"><b class="a" role="button" aria-label="accent">A</b><b class="s" role="button" aria-label="slide">S</b></span>');
-const nsGates = nsRow('m-gates', 'm-step m-gstep', '<i class="m-sbar"></i><span class="m-sn"></span>');
-const nsMorphs = nsRow('m-morphs', 'm-step m-gstep', '<i class="m-sbar"></i><span class="m-sn"></span>');
-const GATE_NAMES = ['rest', '¼', '½', '¾', 'full', 'ring'];
-// which lane is under the notes: the gate times, or the morph values
+const CELL = '<i class="m-sbar"></i><span class="m-sn"></span>';
+// the lanes: [box id, the step's key, its cells]
+const NS_LANES = [['m-ga', 'ga'], ['m-gb', 'gb'], ['m-pa', 'pa'], ['m-pb', 'pb'], ['m-morphs', 'm']].map(([id, k]) => [id, k, nsRow(id, 'm-step m-gstep', CELL)]);
+const nsCellsOf = (k) => NS_LANES.find((l) => l[1] === k)[2];
+const GATE_NAMES = ['rest', '¼', '½', '¾', 'full', 'hold'];
+// the morph lane: shown or not
 let nsLaneMorph = false;
 $('m-nlane').addEventListener('click', () => { nsLaneMorph = !nsLaneMorph; nsDraw(); });
 function nsDraw() {
   const thin = thinned(), top = degMax();
-  nsCells.forEach((c, i) => {
-    const st = nsStep(i), g = nsGates[i], name = st.gate ? noteName(stepNote(st)) : 'rest';
-    for (const el of [c, g]) { el.classList.toggle('thin', thin[nsAbs(i)]); el.classList.toggle('out', nsAbs(i) >= seq.len); el.classList.toggle('rest', !st.gate); }
-    c.classList.toggle('acc', st.acc); c.classList.toggle('slide', st.slide);
-    c.style.setProperty('--f', (Math.min(st.d, top) + 1) / (top + 1));
-    c.querySelector('.m-sn').textContent = st.gate ? name : '—';
-    c.setAttribute('aria-label', `step ${i + 1}: ${name}${st.acc ? ', accent' : ''}${st.slide ? ', slide' : ''}`);
-    g.style.setProperty('--f', st.gate / 5);
-    g.querySelector('.m-sn').textContent = GATE_NAMES[st.gate];
-    g.setAttribute('aria-label', `step ${i + 1} gate: ${GATE_NAMES[st.gate]}`);
-    const mc = nsMorphs[i], mv = st.m || 0;
-    mc.classList.toggle('thin', thin[nsAbs(i)]); mc.classList.toggle('out', nsAbs(i) >= seq.len); mc.classList.toggle('rest', !st.gate);
-    mc.style.setProperty('--f', mv / 100);
-    mc.querySelector('.m-sn').textContent = String(mv);
-    mc.setAttribute('aria-label', `step ${i + 1} morph: ${mv}`);
+  for (const [, k, cells] of NS_LANES) cells.forEach((c, i) => {
+    const st = nsStep(i), s = nsAbs(i), any = st.ga > 0 || st.gb > 0;
+    c.classList.toggle('thin', thin[s]); c.classList.toggle('out', s >= seq.len);
+    let f, txt, label;
+    if (k === 'ga' || k === 'gb') { f = st[k] / 5; txt = GATE_NAMES[st[k]]; label = `step ${i + 1} gate ${k[1]}: ${txt}`; c.classList.toggle('rest', !st[k]); }
+    else if (k === 'm') { const mv = st.m || 0; f = mv / 100; txt = String(mv); label = `step ${i + 1} morph: ${mv}`; c.classList.toggle('rest', !any); }
+    else { f = (Math.min(st[k], top) + 1) / (top + 1); txt = noteName(k === 'pa' ? stepNoteA(st) : stepNoteB(st)); label = `step ${i + 1} pitch ${k[1]}: ${txt}`; c.classList.toggle('rest', !any); }
+    c.style.setProperty('--f', f); c.querySelector('.m-sn').textContent = txt; c.setAttribute('aria-label', label);
   });
-  $('m-gates').hidden = nsLaneMorph; $('m-morphs').hidden = !nsLaneMorph;
+  $('m-mlane').hidden = !nsLaneMorph; document.querySelector('.m-seqpage').classList.toggle('morph', nsLaneMorph);
   $('m-nlane').setAttribute('aria-pressed', nsLaneMorph);
-  $('m-nlane').textContent = nsLaneMorph ? 'gates' : 'morph';
   $('m-morphs').classList.toggle('off', !seq.morph);
   document.querySelectorAll('#m-npages [data-page]').forEach((b) => { b.setAttribute('aria-selected', +b.dataset.page === nsPage); b.classList.toggle('out', +b.dataset.page * 16 >= seq.len); });
   $('m-ncopy').textContent = `copy to ${Math.min(nsPage + 2, PAGES)}`; $('m-ncopy').disabled = nsPage >= PAGES - 1;
@@ -52,10 +45,9 @@ function nsDraw() {
 drawHooks.push(nsDraw);
 const nsShow = (pg) => { nsPage = pg; nsDraw(); nsNow(); };
 $('m-npages').addEventListener('click', (e) => { const b = e.target.closest('[data-page]'); if (b) nsShow(+b.dataset.page); });
-// octave down and up: the whole sequence, every page
+// octave down and up: both pitch lanes, every page
 const nsOct = (k) => { seq.oct = Math.max(OCT_MIN, Math.min(OCT_MAX, seq.oct + k)); nsChanged(); };
-// shift: the whole sequence (the steps within its length, every lane: note, gate, accent, slide, morph) a step left
-// or right, wrapping round at the length
+// shift: the whole sequence (the steps within its length, every lane) a step left or right, wrapping round at the length
 function nsShift(k) {
   const n = seq.len, was = seq.steps.slice(0, n);
   for (let s = 0; s < n; s++) seq.steps[s] = was[(s - k + n) % n];
@@ -64,8 +56,12 @@ function nsShift(k) {
 for (const b of document.querySelectorAll('[data-nshift]')) b.addEventListener('click', () => nsShift(+b.dataset.nshift));
 $('m-noct-dn').addEventListener('click', () => nsOct(-1));
 $('m-noct-up').addEventListener('click', () => nsOct(1));
-// hear a note as it's set, while stopped
-function nsHear(st) { if (!playing && st.gate) { startAudio(); send({ type: 'note', n: degSemis(st.d), acc: st.acc, gate: st.gate, m: (st.m || 0) / 100 }); } }
+// hear a step as it's set, while stopped: its pitches on its own gates (a pitch set on a resting step: both gates)
+function nsHear(st) {
+  if (playing) return;
+  const any = st.ga > 0 || st.gb > 0;
+  startAudio(); send({ type: 'note', na: degSemis(st.pa), nb: degSemis(st.pb), ga: any ? st.ga : 4, gb: any ? st.gb : 4, m: (st.m || 0) / 100 });
+}
 // how high a touch is on el: 0 at its bottom to 1 at its top
 const nsY = (el, e) => { const r = el.getBoundingClientRect(); return Math.max(0, Math.min(0.999, (r.bottom - e.clientY) / r.height)); };
 // a row of sixteen that a touch, or a drag across, edits: edit(i, e, first) changes step i and says whether to play it
@@ -85,43 +81,21 @@ function nsLane(box, edit) {
   box.addEventListener('pointermove', (e) => { if (on && !e.buttons) stop(); else if (on) at(e, false); });
   box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop); dragStops.add(stop);
 }
-// the notes; a touch that starts on the A/S row (or a little above it: the left half is A, the right S) switches that,
-// and a drag along the row sets the others the same. Otherwise the note is where the touch is on the step's bar
-{
-  let flag = null;
-  nsLane($('m-steps'), (i, e, first) => {
-    const st = nsStep(i);
-    if (first) {
-      const m = nsCells[i].querySelector('.m-sm').getBoundingClientRect();
-      const k = e.clientX < m.left + m.width / 2 ? 'acc' : 'slide';
-      flag = e.clientY >= m.top - m.height * 0.5 ? { k, to: !st[k], seen: new Set() } : null;
-    }
-    if (flag) {
-      if (flag.seen.has(i)) return null;
-      flag.seen.add(i); st[flag.k] = flag.to;
-      return false;
-    }
-    const d = Math.min(degMax(), Math.floor(nsY(nsCells[i].querySelector('.m-sbar'), e) * (degMax() + 1)));
-    if (d !== st.d || !st.gate) { st.d = d; if (!st.gate) st.gate = 4; return true; }
+// each lane: the value where the touch is on the step's bar (gates 0..5, pitches a degree of the two octaves, morph 0..100 in fives)
+for (const [id, k, cells] of NS_LANES) {
+  const steps = k === 'ga' || k === 'gb' ? 6 : k === 'm' ? 21 : degMax() + 1;
+  nsLane($(id), (i, e, first) => {
+    const st = nsStep(i), n = k === 'pa' || k === 'pb' ? degMax() + 1 : steps;
+    let v = Math.floor(nsY(cells[i].querySelector('.m-sbar') || cells[i], e) * n);
+    if (k === 'm') v *= 5;
+    if (v !== (st[k] || 0)) { st[k] = v; return k !== 'm'; }
     return first ? false : null;
   });
 }
-// the gate times
-nsLane($('m-gates'), (i, e, first) => {
-  const st = nsStep(i), g = Math.floor(nsY(nsGates[i], e) * 6);
-  if (g !== st.gate) { st.gate = g; return true; }
-  return first ? false : null;
-});
-// the morph values, 0 (the bottom) to 100 (the top) in fives
-nsLane($('m-morphs'), (i, e, first) => {
-  const st = nsStep(i), m = Math.floor(nsY(nsMorphs[i], e) * 21) * 5;
-  if (m !== (st.m || 0)) { st.m = m; return true; }
-  return first ? false : null;
-});
 // the step playing (if its page is shown) and its page, marked as they're heard
 let nsAt = null;
 function nsNow() {
-  nsCells.forEach((c, i) => c.classList.toggle('now', !!nsAt && nsAt.page === nsPage && i === nsAt.step));
+  for (const [, , cells] of NS_LANES) cells.forEach((c, i) => c.classList.toggle('now', !!nsAt && nsAt.page === nsPage && i === nsAt.step));
   document.querySelectorAll('#m-npages [data-page]').forEach((b) => b.classList.toggle('now', !!nsAt && +b.dataset.page === nsAt.page));
 }
 eventHandlers.push((ev) => {
@@ -136,18 +110,18 @@ stopHooks.push(() => { nsAt = null; nsNow(); });
 const nsFader = (label, key, o) => mFader($('m-seqf'), label, { get: () => seq[key], set: (v) => { seq[key] = v; nsChanged(); }, dflt: SEQ0[key], ...o });
 nsFader('root', 'root', { min: 0, max: 11, show: (v) => NOTE_NAMES[v] });
 nsFader('scale', 'scale', { min: 0, max: SCALES.length - 1, show: (v) => SCALES[v][0] });
-nsFader('accent', 'accent', { min: 0, max: 12, show: (v) => `+${v}dB` });
 // length: a drag catches at 16, 32 and 48 (a page, two, three)
 // (the main page has the same fader: a move of either redraws both)
 const nsLen = (v) => { seq.len = v; nsChanged(); drawAll(); };
 nsFader('length', 'len', { set: nsLen, min: 1, max: NSTEPS, show: (v) => String(v), detents: [16, 32, 48], catch: 2.5 });
 nsFader('density', 'density', { set: (v) => { seq.density = v; nsChanged(); drawAll(); }, min: 0, max: 100, step: 5, show: (v) => v + '%' });
-nsFader('glide', 'glide', { min: 0, max: 100, step: 5, show: (v) => v + '%' });
 // morph: off, or the voice parameter the morph lane moves
 nsFader('morph', 'morph', { min: 0, max: MORPH_DESTS.length, show: (v) => (v ? MORPH_DESTS[v - 1][0] : 'off') });
 
 // random: a new line for a page, made by the algorithm picked on the algo fader (kept in the preset). Each makes 16
-// steps of { d: degree of the scale, gate, acc, slide }, so whatever it makes stays in the key
+// steps of { d: degree of the scale, gate, acc, slide }, so whatever it makes stays in the key; twoLanes then makes the
+// sequencer's two gates and two pitches of it: the line is gate a and pitch b, and gate b and pitch a come from it in
+// one of a few ways, picked per randomise (partners)
 const st = (d, gate, acc = false, slide = false) => ({ d: Math.max(0, Math.min(degMax(), d)), gate, acc, slide, w: rIn(0, 99) });
 const euclid = (k, rot) => Array.from({ length: 16 }, (_, i) => ((i + rot) * k) % 16 < k);
 const SEQ_ALGOS = [
@@ -262,25 +236,45 @@ function patternzPage(n, pool) {
 // the whole sequence: a page, the same with a few steps changed, the same moved up the scale, and a new page from the
 // same patterns to end on
 function patternzPages() {
-  const n = SCALES[seq.scale][1].length, pool = patternzPool(), a = patternzPage(n, pool), up = pick([2, 3, 4]);
-  a.forEach((x, i) => { seq.steps[i] = x; seq.steps[16 + i] = { ...x }; seq.steps[32 + i] = st(x.d + up, x.gate, x.acc, x.slide); });
+  const n = SCALES[seq.scale][1].length, pool = patternzPool(), a = patternzPage(n, pool), up = pick([2, 3, 4]), P = partners();
+  const a2 = twoLanes(a, P), a3 = twoLanes(a.map((x) => st(x.d + up, x.gate, x.acc, x.slide)), P);
+  a2.forEach((x, i) => { seq.steps[i] = x; seq.steps[16 + i] = { ...x }; seq.steps[32 + i] = a3[i]; });
   alterPage(1, rIn(2, 3));
-  patternzPage(n, pool).forEach((x, i) => { seq.steps[48 + i] = x; });
+  twoLanes(patternzPage(n, pool), P).forEach((x, i) => { seq.steps[48 + i] = x; });
 }
-function randomPage(pg) {
+// gate b, from the line: its accents (the hits that stand out), the rests between its notes (the two interlock), the
+// same gates, or an even pattern of its own
+const GATE_B = {
+  accents: (L) => L.map((x) => (x.gate && x.acc ? pick([1, 2, 3]) : 0)),
+  between: (L) => L.map((x) => (x.gate ? 0 : chance(0.7) ? pick([1, 2]) : 0)),
+  same: (L) => L.map((x) => x.gate),
+  euclid: () => { const h = euclid(rIn(3, 7), rIn(0, 15)), g = pick([1, 2, 3]); return h.map((on) => (on ? g : 0)); },
+};
+// pitch a, from the line: a drone on the root, the same notes, the same a fixed step up the scale, or a slow line of its own (a note a beat)
+const PITCH_A = {
+  drone: (L) => L.map(() => 0),
+  same: (L) => L.map((x) => x.d),
+  interval: (L, n) => { const up = pick([2, 4, n]); return L.map((x) => Math.min(degMax(), x.d + up)); },
+  slow: (L, n) => { let d = 0; return L.map((x, i) => { if (i % 4 === 0) d = pick([0, 0, 2, 4, n - 1, n]); return Math.min(degMax(), d); }); },
+};
+const partners = () => ({ gb: pick(Object.keys(GATE_B)), pa: pick(Object.keys(PITCH_A)) });
+function twoLanes(L, P = partners()) {
+  const n = SCALES[seq.scale][1].length, pa = PITCH_A[P.pa](L, n);
+  let gb = GATE_B[P.gb](L);
+  if (!gb.some(Boolean)) gb = GATE_B.euclid();
+  return L.map((x, i) => ({ ga: x.gate, gb: gb[i], pa: pa[i], pb: x.d, w: x.w, m: 0 }));
+}
+function randomPage(pg, P = partners()) {
   const n = SCALES[seq.scale][1].length;
   const algo = SEQ_ALGOS[seq.algo] || SEQ_ALGOS[0];
-  algo[1](n).forEach((x, i) => { seq.steps[pg * 16 + i] = x; });
+  twoLanes(algo[1](n), P).forEach((x, i) => { seq.steps[pg * 16 + i] = x; });
 }
-// alter: k steps of a page changed a little: a note a step or two up or down the scale, a rest played or a note
-// rested, an accent or a slide switched
+// alter: k steps of a page changed a little: a pitch a step or two up or down the scale, a gate played or rested
 function alterPage(pg, k = rIn(2, 4)) {
   for (let j = 0; j < k; j++) {
     const st = seq.steps[pg * 16 + rIn(0, 15)], what = rIn(0, 3);
-    if (what === 0 || (what === 1 && !st.gate)) { st.d = Math.max(0, Math.min(degMax(), st.d + pick([-2, -1, 1, 2]))); if (!st.gate) st.gate = 4; }
-    else if (what === 1) st.gate = chance(0.4) ? 0 : rIn(1, 5);
-    else if (what === 2) st.acc = !st.acc;
-    else st.slide = !st.slide;
+    if (what < 2) { const p = what ? 'pa' : 'pb'; st[p] = Math.max(0, Math.min(degMax(), st[p] + pick([-2, -1, 1, 2]))); }
+    else { const g = what === 2 ? 'ga' : 'gb'; st[g] = st[g] && chance(0.5) ? 0 : rIn(1, 5); }
   }
 }
 // copy: page 1 onto pages 2 to 4, each changed a little (two or three steps; the last page, the turnaround, a few more)
@@ -293,7 +287,7 @@ function copyVary() {
 // the whole sequence, for the perf page's randomisers: a new page 1 and its variations
 function randomNotes() { if (SEQ_ALGOS[seq.algo][0] === 'patternz') patternzPages(); else { randomPage(0); copyVary(); } sendSeq(); }
 // random: all 64 steps, each page a new line of its own (not a variation of page 1), whichever page is shown
-for (const b of document.querySelectorAll('[data-nrand]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { if (SEQ_ALGOS[seq.algo][0] === 'patternz') patternzPages(); else for (let pg = 0; pg < PAGES; pg++) randomPage(pg); sendSeq(); }));
+for (const b of document.querySelectorAll('[data-nrand]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { if (SEQ_ALGOS[seq.algo][0] === 'patternz') patternzPages(); else { const P = partners(); for (let pg = 0; pg < PAGES; pg++) randomPage(pg, P); } sendSeq(); }));
 for (const b of document.querySelectorAll('[data-nalter]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { alterPage(nsPage); sendSeq(); }));
 // copy to the next page: the page shown, exactly, onto the one after it, which is then shown (so pressing it again
 // carries on to the next); off on page 4. Undo puts the page back as it was

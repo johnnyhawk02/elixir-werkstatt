@@ -132,7 +132,7 @@ $('m-fs-rand').addEventListener('click', () => { const q = fsF.seq; q.vals = FS_
 // worth moving (the filter most often), each of a random kind, length, speed, depth and slew, now and then with a
 // slide or two; knob seqs off clears them all. Both can be undone
 const FS_TARGETS = ['m-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:reso', 'm-voice-filter:vcf mod',
-  'm-voice-mod:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-mod:vco mod', 'm-voice-shape:decay', 'm-voice-mod:lfo rate',
+  'm-voice-mod:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-mod:vco mod', 'm-voice-shape:release', 'm-voice-mod:lfo rate',
   'm-voice-b:a→b fm', 'm-echo:send', 'm-echo:feedback', 'm-verb:send', 'm-ring:freq'];
 function fsClearAll() { for (const f of mFaders) { fsRelease(f); f.seq = null; } if (fsF) $('m-fs-close').click(); fsMarks(); }
 function fsRandomAll() {
