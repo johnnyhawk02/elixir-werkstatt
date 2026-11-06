@@ -445,7 +445,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 <main class="m" id="m">
   <header class="m-top">
     <div class="m-trow">
-      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v98</small></button>
+      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v99</small></button>
       <button class="m-btn m-metro" id="m-metro" type="button" aria-pressed="false" aria-label="metronome" title="metronome"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="m-metro-body" d="M9 2.5h6l4.5 19h-15z"/><path d="M6.5 16.5h11"/><g class="m-metro-arm"><path d="M12 19V5.5"/><rect x="10.3" y="8" width="3.4" height="3" rx=".5"/></g></svg></button>
     </div>
     <div class="m-tport">
@@ -605,7 +605,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <label class="m-chk"><input id="m-pbpm" type="checkbox" checked><i aria-hidden="true"></i>loading a preset uses its tempo</label>
         <label class="m-chk"><input id="m-bigbuf" type="checkbox"><i aria-hidden="true"></i>bigger audio buffer (slower to respond, try it if the sound breaks up)</label>
         <output class="m-aload" id="m-aload">audio: not started</output>
-        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v98, 6 Nov, 06:52</footer>
+        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v99, 6 Nov, 07:00</footer>
       </div>
     </section>
   </div>
@@ -5497,6 +5497,14 @@ addEventListener('keyup', (e) => { if (e.code === 'Space' && !e.target.closest('
 // resets it, and holding one still for half a second opens its step sequencer. While a sequencer runs, the fader sets
 // its base (fd.base) and the sequencer moves the value around it: the fill is the value heard, the bar the base ----
 const mFaders = [];
+// every drag on the page ends whenever a button is let go anywhere, the window loses focus or the page is hidden: a
+// release that lands outside the control (or that the control never hears) can't leave it following the pointer. Each
+// control that drags puts its stop here
+const dragStops = new Set();
+const stopDrags = () => dragStops.forEach((f) => f());
+for (const t of ['pointerup', 'pointercancel', 'mouseup', 'touchend', 'touchcancel']) addEventListener(t, stopDrags, true);
+addEventListener('blur', stopDrags);
+document.addEventListener('visibilitychange', stopDrags);
 function mFader(box, label, { min, max, step = 1, get, set, show, dflt, travel = 1, cc = 0, detents = [], catch: grab = 0 }) {
   const el = document.createElement('div');
   el.className = cc ? 'm-vf m-dial' : 'm-vf';
@@ -5539,6 +5547,7 @@ function mFader(box, label, { min, max, step = 1, get, set, show, dflt, travel =
   });
   const end = () => { clearTimeout(hold); drag = null; el.classList.remove('held'); };
   tr.addEventListener('pointerup', end); tr.addEventListener('pointercancel', end); tr.addEventListener('lostpointercapture', end);
+  dragStops.add(() => { if (drag) end(); });
   tr.addEventListener('keydown', (e) => {
     const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
     if (d) { e.preventDefault(); move((fd.base !== null ? fd.base : get()) + d * step); }
@@ -5792,7 +5801,7 @@ function nsLane(box, edit) {
   box.addEventListener('pointerdown', (e) => { box.setPointerCapture(e.pointerId); on = true; at(e, true); });
   const stop = () => { on = false; };
   box.addEventListener('pointermove', (e) => { if (on && !e.buttons) stop(); else if (on) at(e, false); });
-  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop);
+  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop); dragStops.add(stop);
 }
 // the notes; a touch that starts on the A/S row (or a little above it: the left half is A, the right S) switches that,
 // and a drag along the row sets the others the same. Otherwise the note is where the touch is on the step's bar
@@ -6119,7 +6128,7 @@ fseqUse = (all) => {
   box.addEventListener('pointerdown', (e) => { box.setPointerCapture(e.pointerId); painting = true; paint(e, true); });
   const stop = () => { painting = false; slideTo = null; };
   box.addEventListener('pointermove', (e) => { if (painting && !e.buttons) stop(); else if (painting) paint(e, false); });
-  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop);
+  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop); dragStops.add(stop);
 }
 // length, slew, speed and depth: vertical faders, the bottom 0 and the top all the way
 function fsBar(bar, setFrac) {
@@ -6128,6 +6137,7 @@ function fsBar(bar, setFrac) {
   bar.addEventListener('pointerdown', (e) => { bar.setPointerCapture(e.pointerId); held = true; at(e); });
   bar.addEventListener('pointermove', (e) => { if (held && !e.buttons) held = false; else if (held) at(e); });
   for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) bar.addEventListener(t, () => { held = false; });
+  dragStops.add(() => { held = false; });
 }
 fsBar($('m-fs-len'), (x) => { fsF.seq.len = 2 + Math.round(x * (FS_MAX - 2)); });
 fsBar($('m-fs-slew'), (x) => { fsF.seq.slew = Math.round(x * 20) * 5; });

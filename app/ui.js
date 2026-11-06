@@ -75,6 +75,14 @@ addEventListener('keyup', (e) => { if (e.code === 'Space' && !e.target.closest('
 // resets it, and holding one still for half a second opens its step sequencer. While a sequencer runs, the fader sets
 // its base (fd.base) and the sequencer moves the value around it: the fill is the value heard, the bar the base ----
 const mFaders = [];
+// every drag on the page ends whenever a button is let go anywhere, the window loses focus or the page is hidden: a
+// release that lands outside the control (or that the control never hears) can't leave it following the pointer. Each
+// control that drags puts its stop here
+const dragStops = new Set();
+const stopDrags = () => dragStops.forEach((f) => f());
+for (const t of ['pointerup', 'pointercancel', 'mouseup', 'touchend', 'touchcancel']) addEventListener(t, stopDrags, true);
+addEventListener('blur', stopDrags);
+document.addEventListener('visibilitychange', stopDrags);
 function mFader(box, label, { min, max, step = 1, get, set, show, dflt, travel = 1, cc = 0, detents = [], catch: grab = 0 }) {
   const el = document.createElement('div');
   el.className = cc ? 'm-vf m-dial' : 'm-vf';
@@ -117,6 +125,7 @@ function mFader(box, label, { min, max, step = 1, get, set, show, dflt, travel =
   });
   const end = () => { clearTimeout(hold); drag = null; el.classList.remove('held'); };
   tr.addEventListener('pointerup', end); tr.addEventListener('pointercancel', end); tr.addEventListener('lostpointercapture', end);
+  dragStops.add(() => { if (drag) end(); });
   tr.addEventListener('keydown', (e) => {
     const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
     if (d) { e.preventDefault(); move((fd.base !== null ? fd.base : get()) + d * step); }

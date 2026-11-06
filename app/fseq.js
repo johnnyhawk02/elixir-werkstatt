@@ -96,7 +96,7 @@ fseqUse = (all) => {
   box.addEventListener('pointerdown', (e) => { box.setPointerCapture(e.pointerId); painting = true; paint(e, true); });
   const stop = () => { painting = false; slideTo = null; };
   box.addEventListener('pointermove', (e) => { if (painting && !e.buttons) stop(); else if (painting) paint(e, false); });
-  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop);
+  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop); dragStops.add(stop);
 }
 // length, slew, speed and depth: vertical faders, the bottom 0 and the top all the way
 function fsBar(bar, setFrac) {
@@ -105,6 +105,7 @@ function fsBar(bar, setFrac) {
   bar.addEventListener('pointerdown', (e) => { bar.setPointerCapture(e.pointerId); held = true; at(e); });
   bar.addEventListener('pointermove', (e) => { if (held && !e.buttons) held = false; else if (held) at(e); });
   for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) bar.addEventListener(t, () => { held = false; });
+  dragStops.add(() => { held = false; });
 }
 fsBar($('m-fs-len'), (x) => { fsF.seq.len = 2 + Math.round(x * (FS_MAX - 2)); });
 fsBar($('m-fs-slew'), (x) => { fsF.seq.slew = Math.round(x * 20) * 5; });
