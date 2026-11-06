@@ -1,6 +1,8 @@
-// ---- voice: laid out like the DFAM's panel. The panel tab has the two voices as the DFAM has its two VCOs: VCO A,
-// VCO B (with its FM into A, as the DFAM's 1->2 FM), the mixer, then voice A's VCF and its EG/VCA. The xtra tab has the
-// rest: voice A's other knobs and switches, the FM's switches, and everything else of voice B ----
+// ---- voice: laid out like the DFAM's panel. The panel tab has the two voices as the DFAM has its two VCOs: VCO A
+// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, then VCO B's VCF and its EG/VCA. VCO B is the main
+// voice (the perf dials, randomisers and morph act on it). Inside, the main voice is still state `ws` / engine voice
+// `a`, and VCO A (the modulator) is `wsB` / engine `b`, so presets keep their meaning; only the panel names differ.
+// The xtra tab has the rest: VCO A's other knobs, the FM's switches, and everything else of VCO B ----
 // every Werkstatt knob, for the randomisers
 const DR1 = LXR.WS_PARAMS.map((q) => q[0]);
 // a voice's knobs, and how to set one ('fm': the FM and mixer)
@@ -10,16 +12,16 @@ const VOICE_OF = { a: { st: ws, set: setWs }, b: { st: wsB, set: setWsB }, fm: {
 const A_ = (...ks) => ks.map((k) => ['a', k]), B_ = (...ks) => ks.map((k) => ['b', k]);
 const VP_TABS = [
   ['panel', 2, [
-    ['vco a', 'm-voice-tone', A_('note', 'wave', 'pwm')],
-    ['vco b', 'm-voice-b', [...B_('note', 'wave', 'pwm'), ['fm', 'fm', 'b→a fm']]],
-    ['mixer', 'm-voice-mix', [['fm', 'levelA', 'vco a'], ['fm', 'levelB', 'vco b']]],
+    ['vco a', 'm-voice-b', [...B_('note', 'wave', 'pwm'), ['fm', 'fm', 'a→b fm']]],
+    ['vco b', 'm-voice-tone', A_('note', 'wave', 'pwm')],
+    ['mixer', 'm-voice-mix', [['fm', 'levelB', 'vco a'], ['fm', 'levelA', 'vco b']]],
     ['vcf', 'm-voice-filter', A_('cutoff', 'reso', 'vcfMod')],
     ['eg / vca', 'm-voice-shape', A_('attack', 'decay', 'sustain', 'volume')]]],
   ['xtra', 3, [
-    ['a', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'lfoRate', 'lfoWave')],
+    ['a', 'm-voice-bx', B_('fine', 'vcoMod', 'vcoSrc', 'glide', 'cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive',
+      'attack', 'decay', 'sustain', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')],
     ['fm', 'm-voice-fm', [['fm', 'fmSrc', 'src'], ['fm', 'fmMode', 'mode']]],
-    ['b', 'm-voice-bx', B_('fine', 'vcoMod', 'vcoSrc', 'glide', 'cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive',
-      'attack', 'decay', 'sustain', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')]]]];
+    ['b', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'lfoRate', 'lfoWave')]]]];
 let mVSec = 0;
 const mVBoxes = VP_TABS.map(([title, rows, secs], k) => {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'm-btn'; b.setAttribute('role', 'tab'); b.textContent = title;

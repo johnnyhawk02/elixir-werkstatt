@@ -54,7 +54,7 @@ export const WS_DEFAULTS = Object.freeze(Object.fromEntries(WS_PARAMS.map((p) =>
 // the mixer that sums the two. Same shape as WS_PARAMS
 export const FM_PARAMS = [
   ['fm', 'fm amt', 'fm', 0, 100, 0, pctW], // B into A
-  ['fmSrc', 'fm src', 'fm', 0, 1, 0, (v) => ['b vco', 'b out'][v]], // B's VCO, or B after its VCF and VCA
+  ['fmSrc', 'fm src', 'fm', 0, 1, 0, (v) => ['a vco', 'a out'][v]], // the modulator's VCO, or it after its VCF and VCA (on the panel the modulator is 'vco a')
   ['fmMode', 'fm mode', 'fm', 0, 1, 0, (v) => ['expo', 'lin'][v]], // into A's pitch CV, or a current into A's core
   ['levelA', 'a level', 'fm', 0, 100, 100, pctW],
   ['levelB', 'b level', 'fm', 0, 100, 0, pctW],
@@ -81,9 +81,10 @@ export const WS_CIRCUIT = Object.freeze({
   lfoAmp: 5, // LFO swing, +/- V
   outputHp: 10, // output coupling, Hz
   // the FM: the source through the FM pot (audio taper) into either A's expo summer (fmExpo volts of CV per volt at full
-  // knob: B's +/- 5 V swings A +/- 4 octaves) or, through fmLinR, as a current straight into A's ramp capacitor
-  // (linear FM: no through-zero, the core stalls on a negative current; 1.6 Mohm makes B's 5 V about A's own current at C3)
-  fmExpo: 0.8, fmLinR: 1.6e6, fmTaper: 10,
+  // knob: B's +/- 5 V swings A +/- 10 octaves) or, through fmLinR, as a current straight into A's ramp capacitor
+  // (linear FM: no through-zero, the core stalls on a negative current; 400 kohm makes B's 5 V about 4x A's own current
+  // at C3). Deep, like the DFAM's 1->2 FM at full; the audio taper keeps the low end of the knob fine
+  fmExpo: 2, fmLinR: 4e5, fmTaper: 10,
 });
 
 // ---------------------------------------------------------------- components (after dfam-model js/dfam.js)

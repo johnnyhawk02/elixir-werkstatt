@@ -1259,7 +1259,7 @@
     "vcaMode": 0
    },
    "fm": {
-    "fm": 45,
+    "fm": 16,
     "fmSrc": 1,
     "fmMode": 1,
     "levelA": 100,
@@ -2115,7 +2115,7 @@
     "note": 48
    },
    "fm": {
-    "fm": 30,
+    "fm": 15,
     "fmSrc": 0,
     "fmMode": 0,
     "levelA": 100,

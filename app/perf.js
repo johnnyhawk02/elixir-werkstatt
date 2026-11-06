@@ -1,4 +1,4 @@
-// ---- perf: eight dials in a line along the top, MIDI CC 1 to 8 in order: tempo, pitch, decay, filter, reso, fm (voice B into A), the
+// ---- perf: eight dials in a line along the top, MIDI CC 1 to 8 in order: tempo, pitch, decay, filter, reso, fm (vco a into vco b), the
 // echo send and the reverb send. Decay and filter are macros on top of voice A's sound; the rest move the same settings
 // as their faders on the other pages ----
 const PERF_DIALS = [

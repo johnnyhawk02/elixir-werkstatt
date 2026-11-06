@@ -34,35 +34,37 @@ Werkstatt: the VCO as a ramp core (the panel's saw / pulse switch) and the panel
 0.1 to 100 Hz, VCO MOD up to 3 octaves, VCF MOD up to 7). The **drive** knob (the level into the ladder) isn't on the
 Werkstatt's panel.
 
-### Voice B and the FM
+### VCO A, VCO B and the FM
 
-There are two Werkstatts, voice A and voice B: the same circuit, both playing the sequencer's notes (each from its own
-base note, so B's freq sets the ratio). B frequency-modulates A, set on the **fm** knob (also perf dial 6, MIDI CC 6),
-modelled as a circuit too:
+There are two Werkstatts, the same circuit, both playing the sequencer's notes (each from its own base note, so their
+freqs set the ratio). As on the DFAM, the first frequency-modulates the second: **vco a** modulates **vco b**, set on
+the **a→b fm** knob (also perf dial 6, MIDI CC 6), modelled as a circuit too. VCO B is the main voice: its VCF and EG
+are on the panel, and the perf dials, randomisers and morph act on it.
 
-- **fm src**: B's VCO (the raw saw or pulse), or B's output after its own VCF and VCA, so B's envelope shapes the
-  modulation like a two-operator FM synth.
-- **fm mode**: **expo** sums the source into A's expo converter (B's +/- 5 V swings A up to +/- 4 octaves at full);
-  **lin** feeds it through a resistor as a current straight into A's ramp capacitor, linear FM. There is no
-  through-zero: on a deep negative swing A's core stalls, as a real ramp core would.
-- The fm knob is an audio-taper pot. **a level** and **b level** set the summing mixer; B is silent by default.
+- **fm src**: VCO A's raw saw or pulse, taken before the mixer (the default), or VCO A after its own VCF and VCA, so its
+  envelope shapes the modulation like a two-operator FM synth.
+- **fm mode**: **expo** sums the source into B's expo converter (A's +/- 5 V swings B up to +/- 10 octaves at full);
+  **lin** feeds it through a resistor as a current straight into B's ramp capacitor, linear FM. There is no
+  through-zero: on a deep negative swing B's core stalls, as a real ramp core would.
+- The fm knob is an audio-taper pot: fine at the bottom, very deep at the top. The **mixer** sets the two levels; VCO A
+  is silent by default, so it only modulates.
 
-B only runs while it's heard or modulating, so with the FM off and its level at 0 it costs nothing and A sounds as it
-did alone. The perf decay and filter dials and the morph act on voice A (the morph can also move the fm amount). A
-preset keeps B as `wsB` and the FM as `fm`; one from before voice B starts B as a copy of A, with the FM off.
+VCO A only runs while it's heard or modulating, so with the FM off and its level at 0 it costs nothing. Inside (and in
+presets) the main voice is still `ws` and the modulator `wsB`, with the FM and levels in `fm` (`levelA` is the main
+voice's level); a preset from before the second voice starts the modulator as a copy of the main one, with the FM off.
 
-The voice page is laid out like the DFAM's panel, the two voices as its two VCOs, with the rest in an xtra tab:
+The voice page is laid out like the DFAM's panel, the two VCOs first, with the rest in an xtra tab:
 
 | tab | section | controls |
 |---|---|---|
-| panel | vco a | freq (the base note), wave (saw / pulse), pwm |
-| | vco b | freq, wave, pwm, b→a fm (the FM amount) |
-| | mixer | vco a, vco b (the two voices' levels) |
-| | vcf | voice A's cutoff, reso, vcf mod |
-| | eg / vca | voice A's attack, decay, sustain (off / on), volume |
-| xtra | a | fine, vco mod, vco src (lfo / eg), glide, vcf src (lfo / eg), polarity (+ / −), drive, vca (eg / on), lfo rate, lfo wave |
-| | fm | src (b vco / b out), mode (expo / lin) |
-| | b | the rest of voice B: fine, vco mod and src, glide, its whole VCF, EG and VCA, volume, its LFO |
+| panel | vco a | freq (the base note), wave (saw / pulse), pwm, a→b fm (the FM amount) |
+| | vco b | freq, wave, pwm |
+| | mixer | vco a, vco b (the two levels) |
+| | vcf | VCO B's cutoff, reso, vcf mod |
+| | eg / vca | VCO B's attack, decay, sustain (off / on), volume |
+| xtra | a | the rest of VCO A: fine, vco mod and src, glide, its whole VCF, EG and VCA, volume, its LFO |
+| | fm | src (a vco / a out), mode (expo / lin) |
+| | b | fine, vco mod, vco src (lfo / eg), glide, vcf src (lfo / eg), polarity (+ / −), drive, vca (eg / on), lfo rate, lfo wave |
 
 The sequencer's notes go on top of the base note; accents turn unaccented notes down after the voice, as before (the
 Werkstatt has no velocity). A gate opens the EG; a slide moves the pitch without a new gate. The morph can move cutoff,
@@ -87,7 +89,7 @@ no play or record buttons: R starts and stops a recording.
   | CC | dial | | CC | dial |
   |---|---|---|---|---|
   | 1 | tempo | | 5 | reso |
-  | 2 | pitch (two octaves either way) | | 6 | fm (voice B into A) |
+  | 2 | pitch (two octaves either way) | | 6 | fm (vco a into vco b) |
   | 3 | decay | | 7 | echo send |
   | 4 | filter | | 8 | reverb send |
 
