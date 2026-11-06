@@ -445,7 +445,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 <main class="m" id="m">
   <header class="m-top">
     <div class="m-trow">
-      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v103</small></button>
+      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v104</small></button>
       <button class="m-btn m-metro" id="m-metro" type="button" aria-pressed="false" aria-label="metronome" title="metronome"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="m-metro-body" d="M9 2.5h6l4.5 19h-15z"/><path d="M6.5 16.5h11"/><g class="m-metro-arm"><path d="M12 19V5.5"/><rect x="10.3" y="8" width="3.4" height="3" rx=".5"/></g></svg></button>
     </div>
     <div class="m-tport">
@@ -605,7 +605,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <label class="m-chk"><input id="m-pbpm" type="checkbox" checked><i aria-hidden="true"></i>loading a preset uses its tempo</label>
         <label class="m-chk"><input id="m-bigbuf" type="checkbox"><i aria-hidden="true"></i>bigger audio buffer (slower to respond, try it if the sound breaks up)</label>
         <output class="m-aload" id="m-aload">audio: not started</output>
-        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v103, 6 Nov, 07:58</footer>
+        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v104, 6 Nov, 08:42</footer>
       </div>
     </section>
   </div>
@@ -4565,7 +4565,8 @@ const FM_DEFAULTS = Object.freeze(Object.fromEntries(FM_PARAMS.map((p) => [p[0],
 const WS_CIRCUIT = Object.freeze({
   oversample: 2, // the circuit runs at twice the engine's rate
   temperature: 25, trimTemperature: 25, // C
-  vcoCap: 4.7e-9, vcoThreshold: 5, vcoResetTime: 400e-9, // ramp capacitor F, comparator level V, reset (4066 + LM393) s
+  vcoCap: 4.7e-9, vcoThreshold: 5, vcoResetTime: 400e-9, // ramp capacitor F, comparator level V, reset one-shot s
+  vcoResetR: 47, // reset switch on-resistance, ohm (estimated: leaves about 16% of the ramp on the capacitor)
   vcoMaxHz: 20000, expoRbulk: 2, // expo current limit, bulk emitter resistance ohm
   vcoModOctaves: 3, vcfModOctaves: 7, // VCO MOD and VCF MOD at full knob, octaves (LFO: either way; EG: up)
   vcfCap: 68e-9, vcfMaxHz: 40000, resonanceMax: 1.12, // ladder caps F, control current limit, loop gain at full RES
@@ -4706,35 +4707,60 @@ class Decimator {
 
 // ---------------------------------------------------------------- the Werkstatt's own blocks
 
-// polyBLEP: the band-limited step's correction at phase t (in samples' worth of phase inc dt) around a jump
-const blep = (t, dt) => {
-  if (t < dt) { t /= dt; return t + t - t * t - 1; }
-  if (t > 1 - dt) { t = (t - 1) / dt; return t * t + t + t + 1; }
-  return 0;
-};
-
-// The VCO: the expo converter's current charges the ramp capacitor; at the comparator's threshold a switch dumps it,
-// taking the reset time (so the top end runs a little flat, as the hardware does). The saw is the ramp; the pulse is a
-// second comparator between the ramp and the PWM voltage. f = Ic / (C Vth), period + reset time
+// The VCO, as the circuit: the expo converter's current Ic charges the timing capacitor (dV/dt = Ic / C). At the
+// comparator's threshold a one-shot closes the reset switch for the reset time, and the capacitor discharges through
+// the switch's on-resistance (V -> Ic Ron with tau = Ron C) while Ic keeps flowing in. The switch doesn't empty it in
+// that time: the ramp starts again from what's left (vRes), which with the reset time also makes the top end run
+// flat. The saw is the capacitor's voltage (buffered, offset and scaled to +/- 5 V over its swing); the pulse is a
+// second comparator between that voltage and the PWM voltage, so it flips inside the reset too.
+// Each sample is worked out exactly, segment by segment (the ramps are straight lines, the resets exponentials), and
+// sampled at its end. The circuit's edges (the reset, the pulse comparator flipping) land between samples, so each one
+// gets the polyBLEP correction for its exact time and size, on that sample and the one before (so the output is one
+// sample late)
 class RampVco {
   constructor(fs, C) {
     this.fs = fs; this.dt = 1 / fs; this.cap = C.vcoCap; this.vth = C.vcoThreshold; this.tr = C.vcoResetTime;
-    this.ph = 0;
+    this.ron = C.vcoResetR; this.tau = C.vcoResetR * C.vcoCap;
+    this.vRes = rampResidual(C); // where a reset leaves the capacitor (Ic Ron aside)
+    this.v = this.vRes; this.rst = 0; this.hi = true; this.sawZ = -5; this.pulZ = 5;
   }
-  // ic: the expo current; width: the pulse's high part, 0.5 (square) to 0.05. Returns [saw, pulse], +/- 5 V
+  // ic: the charging current, amps; width: the pulse's high part, 0.5 (square) to 0.05. Returns [saw, pulse], +/- 5 V
   process(ic, width) {
-    const fRamp = ic / (this.cap * this.vth), f = 1 / (1 / fRamp + this.tr);
-    const inc = Math.min(0.49, f * this.dt);
-    this.ph += inc;
-    if (this.ph >= 1) this.ph -= 1;
-    const p = this.ph;
-    const saw = 2 * p - 1 - blep(p, inc);
-    let q = p < width ? 1 : -1;
-    q += blep(p, inc);
-    q -= blep((p - width + 1) % 1, inc);
-    return [saw * 5, q * 5];
+    const dt = this.dt, C = this.cap, vth = this.vth, tau = this.tau, slope = ic / C, vInf = ic * this.ron;
+    const span = vth - this.vRes, sawOf = (v) => ((v - this.vRes) / span * 2 - 1) * 5;
+    const vp = this.vRes + width * span; // the pulse comparator's level: high while the ramp is below it
+    let v = this.v, t = 0, sawZ = this.sawZ, pulZ = this.pulZ, dSaw = 0, dPul = 0;
+    // an edge of size J (volts out) at time te into the sample: half a band-limited step on either side of it
+    const edge = (te, J, pulse) => {
+      const w = te / dt, before = 0.5 * J * (1 - w) * (1 - w), after = -0.5 * J * w * w;
+      if (pulse) { pulZ += before; dPul += after; } else { sawZ += before; dSaw += after; }
+    };
+    for (let n = 0; n < 256 && t < dt; n++) {
+      const rem = dt - t;
+      if (this.rst > 0) { // resetting: discharging through the switch
+        const sg = Math.min(this.rst, rem), v1 = vInf + (v - vInf) * Math.exp(-sg / tau);
+        if (!this.hi && v1 < vp) { this.hi = true; edge(t + Math.max(0, tau * Math.log((v - vInf) / (vp - vInf))), 10, true); }
+        v = v1; this.rst -= sg; t += sg;
+      } else { // charging: a straight ramp up to the threshold
+        const tth = Math.max((vth - v) / slope, 0);
+        if (this.hi && v + slope * Math.min(tth, rem) >= vp) { this.hi = false; edge(t + Math.max(0, (vp - v) / slope), -10, true); }
+        if (tth <= rem) { // the comparator fires the one-shot: the capacitor dumps (an edge the size of the whole reset)
+          t += tth; v = vth; this.rst = this.tr;
+          edge(t, sawOf(vInf + (vth - vInf) * Math.exp(-this.tr / tau)) - 5, false);
+        } else { v += slope * rem; t = dt; }
+      }
+    }
+    this.v = v;
+    const out = [sawZ, pulZ];
+    // (a sample that lands inside a reset reads where the reset is going: it's far shorter than a sample, and its edge
+    // is already in as a step)
+    const vOut = this.rst > 0 ? vInf + (v - vInf) * Math.exp(-this.rst / tau) : v;
+    this.sawZ = sawOf(vOut) + dSaw; this.pulZ = (this.hi ? 5 : -5) + dPul;
+    return out;
   }
 }
+// what the reset leaves on the timing capacitor (the switch's RC against the reset time), volts
+const rampResidual = (C) => C.vcoThreshold * Math.exp(-C.vcoResetTime / (C.vcoResetR * C.vcoCap));
 
 // The EG: a gate charges the capacitor through the attack pot and a diode towards the supply; the comparator ends the
 // attack at the peak. With sustain on it holds there while the gate is held; then (or straight away with sustain off)
@@ -4778,9 +4804,9 @@ class Werkstatt {
     const rng = new WRng(seed);
     this.vco = new RampVco(this.fs, C);
     // iRef: the current that makes A4 (440 Hz) at 0 V of pitch CV (as trimmed: what's left is the mismatch)
-    this.vcoExpo = new ExpoConverter(440 * C.vcoCap * C.vcoThreshold, tempK, trimK, C.expoRbulk, rng.gaussian() * C.expoVbeSd, rng.gaussian() * C.expoScaleSd);
+    this.vcoExpo = new ExpoConverter(440 * C.vcoCap * (C.vcoThreshold - rampResidual(C)), tempK, trimK, C.expoRbulk, rng.gaussian() * C.expoVbeSd, rng.gaussian() * C.expoScaleSd);
     this.vcfOffset = rng.gaussian() * C.vcfOffsetSd;
-    this.vcoIMax = C.vcoMaxHz * C.vcoCap * C.vcoThreshold;
+    this.vcoIMax = C.vcoMaxHz * C.vcoCap * (C.vcoThreshold - rampResidual(C));
     this.ladder = new LadderFilter(this.fs, C.vcfCap, tempK, new WRng(seed + 17), C.ladderNoise);
     this.vcfExpo = new ExpoConverter(1, tempK, trimK, C.expoRbulk);
     this.vcfIMax = this.ladder.currentForCutoff(Math.min(C.vcfMaxHz, 0.45 * this.fs));
