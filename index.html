@@ -453,7 +453,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 <main class="m" id="m">
   <header class="m-top">
     <div class="m-trow">
-      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v106</small></button>
+      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v107</small></button>
       <button class="m-btn m-metro" id="m-metro" type="button" aria-pressed="false" aria-label="metronome" title="metronome"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="m-metro-body" d="M9 2.5h6l4.5 19h-15z"/><path d="M6.5 16.5h11"/><g class="m-metro-arm"><path d="M12 19V5.5"/><rect x="10.3" y="8" width="3.4" height="3" rx=".5"/></g></svg></button>
     </div>
     <div class="m-tport">
@@ -612,7 +612,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <label class="m-chk"><input id="m-pbpm" type="checkbox" checked><i aria-hidden="true"></i>loading a preset uses its tempo</label>
         <label class="m-chk"><input id="m-bigbuf" type="checkbox"><i aria-hidden="true"></i>bigger audio buffer (slower to respond, try it if the sound breaks up)</label>
         <output class="m-aload" id="m-aload">audio: not started</output>
-        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v106, 6 Nov, 13:44</footer>
+        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v107, 6 Nov, 14:11</footer>
       </div>
     </section>
   </div>
@@ -4541,6 +4541,8 @@ const WS_PARAMS = [
   ['pwm', 'pwm', 'tone', 0, 100, 0, pctW], // 0: square, 100: a narrow pulse
   ['vcoMod', 'vco mod', 'tone', 0, 100, 0, pctW],
   ['vcoSrc', 'vco src', 'tone', 0, 1, 0, (v) => ['lfo', 'eg'][v]],
+  // in a pair: how far the vco env (env 4) moves this VCO's pitch, up or down (0: not at all)
+  ['vcoEnv', 'vco env', 'tone', -100, 100, 0, (v) => (v > 0 ? `+${v}%` : `${v}%`)],
   ['glide', 'glide', 'tone', 0, 100, 0, pctW],
   ['attack', 'attack', 'shape', 0, 100, 0, pctW],
   ['decay', 'decay', 'shape', 0, 100, 45, pctW],
@@ -4565,7 +4567,7 @@ const FM_PARAMS = [
   ['fmMode', 'fm mode', 'fm', 0, 1, 0, (v) => ['expo', 'lin'][v]], // into A's pitch CV, or a current into A's core
   ['levelA', 'a level', 'fm', 0, 100, 100, pctW],
   ['levelB', 'b level', 'fm', 0, 100, 0, pctW],
-  // the three AR envelopes and which gate fires each (a, b, or either): env 1 opens the modulator's VCA (the panel's
+  // the four AR envelopes (env 4, the vco env, below) and which gate fires each (a, b, or either): env 1 opens the modulator's VCA (the panel's
   // vco a), env 2 the main voice's (vco b), env 3 is both voices' EG mod source (their vcf mod and vco mod when set to
   // eg). Envs 1 and 2 take their attack and release from their voice's attack and decay knobs; env 3 has its own
   ['trig1', 'env 1 gate', 'fm', 0, 2, 1, (v) => ['a', 'b', 'a+b'][v]],
@@ -4573,6 +4575,10 @@ const FM_PARAMS = [
   ['trig3', 'env 3 gate', 'fm', 0, 2, 2, (v) => ['a', 'b', 'a+b'][v]],
   ['e3Attack', 'env 3 attack', 'fm', 0, 100, 0, pctW],
   ['e3Release', 'env 3 release', 'fm', 0, 100, 45, pctW],
+  // env 4, the vco env: each VCO's pitch, by its own vco env amount (for percussive pitch drops and zaps)
+  ['trig4', 'env 4 gate', 'fm', 0, 2, 2, (v) => ['a', 'b', 'a+b'][v]],
+  ['e4Attack', 'env 4 attack', 'fm', 0, 100, 0, pctW],
+  ['e4Release', 'env 4 release', 'fm', 0, 100, 20, pctW],
 ].map(Object.freeze);
 const FM_DEFAULTS = Object.freeze(Object.fromEntries(FM_PARAMS.map((p) => [p[0], p[5]])));
 
@@ -4583,6 +4589,7 @@ const WS_CIRCUIT = Object.freeze({
   vcoCap: 4.7e-9, vcoThreshold: 5, vcoResetTime: 400e-9, // ramp capacitor F, comparator level V, reset one-shot s
   vcoResetR: 47, // reset switch on-resistance, ohm (estimated: leaves about 16% of the ramp on the capacitor)
   vcoMaxHz: 20000, expoRbulk: 2, // expo current limit, bulk emitter resistance ohm
+  vcoEnvOctaves: 5, // the vco env at full amount, octaves either way
   vcoModOctaves: 3, vcfModOctaves: 7, // VCO MOD and VCF MOD at full knob, octaves (LFO: either way; EG: up)
   vcfCap: 68e-9, vcfMaxHz: 40000, resonanceMax: 1.12, // ladder caps F, control current limit, loop gain at full RES
   ladderIn: [0.0015, 0.02], ladderNoise: 2e-7, // mixer volts to ladder volts at drive 0 and 100, input noise V rms
@@ -4835,7 +4842,7 @@ class Werkstatt {
     this.cv = null; // the pitch CV after glide, volts (1 V/oct from A4)
     // in a pair: ar (the EG is an AR, holding at the top while its gate is held: the sustain switch is ignored) and
     // modEnv (the EG used as the mod source, in place of its own)
-    this.ar = false; this.modEnv = null;
+    this.ar = false; this.modEnv = null; this.pitchEnv = null;
     this.set({});
   }
   // knobs by key (any subset); a value is clamped to its range
@@ -4865,7 +4872,8 @@ class Werkstatt {
     const lfo = this.lfo.process(lfoHz(q.lfoRate), q.lfoWave);
     // the mod sources as volts: the LFO either way, the EG up (both scaled so full knob gives the octaves set)
     const src = (s) => (s ? menv / C.egPeak : lfo / C.lfoAmp);
-    const vcoCv = this.cv + q.vcoMod / 100 * C.vcoModOctaves * src(q.vcoSrc) + fmCv;
+    const penv = this.pitchEnv && q.vcoEnv ? q.vcoEnv / 100 * C.vcoEnvOctaves * this.pitchEnv.v / C.egPeak : 0;
+    const vcoCv = this.cv + q.vcoMod / 100 * C.vcoModOctaves * src(q.vcoSrc) + penv + fmCv;
     const ic = Math.max(1e-12, this.vcoExpo.current(vcoCv, this.vcoIMax) + fmI);
     const [saw, pulse] = this.vco.process(ic, this.width);
     const osc = this.oscOut = q.wave ? pulse : saw;
@@ -4898,12 +4906,15 @@ class WerkstattPair {
     this.b.oscOut = 0; this.os = this.a.os;
     this.decim = new Decimator(this.os);
     this.hpA = Math.exp((-2 * PI * WS_CIRCUIT.outputHp) / sampleRate); this.hpX = 0; this.hpY = 0;
-    // the three AR envelopes: env 1 is B's own EG (the modulator, the panel's vco a), env 2 A's (the main voice, vco b),
+    // the four AR envelopes (env 4, the vco env, below): env 1 is B's own EG (the modulator, the panel's vco a), env 2 A's (the main voice, vco b),
     // env 3 a third, the same circuit, both voices' mod source
     const C = WS_CIRCUIT;
     this.e3 = new Eg(this.a.fs, C, C.egCap * (1 + new WRng(seed + 2).gaussian() * C.egCapTol / 3));
     this.a.ar = this.b.ar = true; this.a.modEnv = this.b.modEnv = this.e3;
-    this.envs = [this.b.eg, this.a.eg, this.e3];
+    // and env 4, the vco env, on both VCOs' pitch
+    this.e4 = new Eg(this.a.fs, C, C.egCap * (1 + new WRng(seed + 3).gaussian() * C.egCapTol / 3));
+    this.a.pitchEnv = this.b.pitchEnv = this.e4;
+    this.envs = [this.b.eg, this.a.eg, this.e3, this.e4];
     this.g = [false, false]; // gates A and B
     this.f = { ...FM_DEFAULTS };
     this.setFm({});
@@ -4913,13 +4924,15 @@ class WerkstattPair {
     const C = WS_CIRCUIT, F = this.f;
     this.r3A = C.attackMinR + audioTaper(F.e3Attack / 100, C.attackPotR, C.potTaper);
     this.r3D = C.decayMinR + audioTaper(F.e3Release / 100, C.decayPotR, C.potTaper);
+    this.r4A = C.attackMinR + audioTaper(F.e4Attack / 100, C.attackPotR, C.potTaper);
+    this.r4D = C.decayMinR + audioTaper(F.e4Release / 100, C.decayPotR, C.potTaper);
   }
   // gate l (0: A, 1: B) on (a new gate: every envelope it fires starts again from where its capacitor is) or off (an
   // envelope lets go once none of its gates is held)
   gate(l, on) {
     const g = this.g, F = this.f;
     g[l] = on;
-    [F.trig1, F.trig2, F.trig3].forEach((t, k) => {
+    [F.trig1, F.trig2, F.trig3, F.trig4].forEach((t, k) => {
       if (t !== 2 && t !== l) return;
       if (on) this.envs[k].on();
       else if (!(t === 2 ? g[0] || g[1] : g[t])) this.envs[k].off();
@@ -4938,7 +4951,7 @@ class WerkstattPair {
     const gA = A.p.volume / 100 * F.levelA / 100, gB = B.p.volume / 100 * F.levelB / 100;
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < this.os; k++) {
-        this.e3.process(this.r3A, this.r3D, true);
+        this.e3.process(this.r3A, this.r3D, true); this.e4.process(this.r4A, this.r4D, true);
         const bo = bOn ? B.tick() : 0, src = F.fmSrc ? bo : B.oscOut;
         const ao = F.fmMode ? A.tick(0, amt * src / C.fmLinR) : A.tick(amt * C.fmExpo * src, 0);
         d.push(ao * gA + bo * gB);
@@ -5743,7 +5756,7 @@ const ccDials = PERF_DIALS.map(([label, o], i) => mFader($('m-perf'), label, { .
 }
 
 // ---- voice: laid out like the DFAM's panel. The panel tab has the two voices as the DFAM has its two VCOs: VCO A
-// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, VCO B's VCF, then the three AR envelopes. VCO B is the
+// (with its FM into B, as the DFAM's 1->2 FM), VCO B, the mixer, VCO B's VCF, then the four AR envelopes (env 4, the vco env, below). VCO B is the
 // main voice (the randomisers and morph act on it). Inside, the main voice is still state `ws` / engine voice
 // `a`, and VCO A (the modulator) is `wsB` / engine `b`, so presets keep their meaning; only the panel names differ.
 // The xtra tab has the rest: VCO A's other knobs, the FM's switches, and everything else of VCO B ----
@@ -5755,16 +5768,18 @@ const VOICE_OF = { a: { st: ws, set: setWs }, b: { st: wsB, set: setWsB }, fm: {
 // boxes are named as before, m-voice-tone, -shape, -filter, so presets' knob sequencers still find them)
 const A_ = (...ks) => ks.map((k) => ['a', k]), B_ = (...ks) => ks.map((k) => ['b', k]);
 const VP_TABS = [
-  ['panel', 2, [
+  ['panel', 3, [
     ['vco a', 'm-voice-b', [...B_('note', 'wave', 'pwm'), ['fm', 'fm', 'a→b fm']]],
     ['vco b', 'm-voice-tone', A_('note', 'wave', 'pwm')],
     ['mixer', 'm-voice-mix', [['fm', 'levelB', 'vco a'], ['fm', 'levelA', 'vco b']]],
     ['vcf', 'm-voice-filter', A_('cutoff', 'reso', 'vcfMod')],
-    // the three AR envelopes: env 1 opens vco a's VCA, env 2 vco b's, env 3 is the mod (vcf mod, and vco mod set to
+    // the four AR envelopes (env 4, the vco env, below): env 1 opens vco a's VCA, env 2 vco b's, env 3 is the mod (vcf mod, and vco mod set to
     // eg) of both; each with the gate that fires it
-    ['vca a env', 'm-voice-env1', [['b', 'attack'], ['b', 'decay', 'release'], ['fm', 'trig1', 'gate']]],
-    ['vca b env', 'm-voice-shape', [['a', 'attack'], ['a', 'decay', 'release'], ['fm', 'trig2', 'gate']]],
-    ['vcf env', 'm-voice-env3', [['fm', 'e3Attack', 'attack'], ['fm', 'e3Release', 'release'], ['fm', 'trig3', 'gate']]]]],
+    ['env a', 'm-voice-env1', [['b', 'attack'], ['b', 'decay', 'release'], ['fm', 'trig1', 'gate']]],
+    ['env b', 'm-voice-shape', [['a', 'attack'], ['a', 'decay', 'release'], ['fm', 'trig2', 'gate']]],
+    ['vcf eg', 'm-voice-env3', [['fm', 'e3Attack', 'attack'], ['fm', 'e3Release', 'release'], ['fm', 'trig3', 'gate']]],
+    // env 4: the vco env, on each VCO's pitch by its own amount (up or down)
+    ['vco env', 'm-voice-env4', [['b', 'vcoEnv', 'amt a'], ['a', 'vcoEnv', 'amt b'], ['fm', 'e4Attack', 'attack'], ['fm', 'e4Release', 'release'], ['fm', 'trig4', 'gate']]]]],
   ['xtra', 3, [
     ['a', 'm-voice-bx', B_('fine', 'vcoMod', 'vcoSrc', 'glide', 'cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive',
       'vcaMode', 'volume', 'lfoRate', 'lfoWave')],
@@ -6402,6 +6417,9 @@ const RANDOM_VOICE = {
     rSet('wave', chance(0.5) ? 1 : 0); rSet('pwm', chance(0.5) ? 0 : rIn(10, 85)); rSet('fine', 0);
     const vib = chance(0.25);
     rSet('vcoMod', vib ? rIn(2, 25) : 0); rSet('vcoSrc', vib && chance(0.4) ? 1 : 0); rSet('glide', chance(0.3) ? rIn(5, 40) : 0);
+    // now and then a percussive pitch drop on the vco env
+    const perc = chance(0.25);
+    rSet('vcoEnv', perc ? rIn(10, 60) : 0); if (perc) setFm('e4Release', rIn(5, 35));
   },
   shape() {
     // the three envelopes (their gates stay): env 2 on vco b's VCA, env 1 on vco a's, env 3 on the filters
@@ -6421,7 +6439,7 @@ function alterSound(a = 0.1, keys = DR1) {
   for (const key of keys) {
     const sp = WS_SPEC[key], span = sp.max - sp.min;
     if (span < 20 || ['note', 'fine', 'volume'].includes(key)) continue;
-    if ((key === 'vcoMod' || key === 'glide') && !ws[key]) continue;
+    if ((key === 'vcoMod' || key === 'glide' || key === 'vcoEnv') && !ws[key]) continue;
     ws[key] = Math.max(sp.min, Math.min(sp.max, Math.round(ws[key] + (rnd() * 2 - 1) * a * span)));
   }
   sendWs();

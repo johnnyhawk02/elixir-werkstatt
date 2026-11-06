@@ -64,16 +64,18 @@ The voice page is laid out like the DFAM's panel, the two VCOs first, with the r
 | | vco b | freq, wave, pwm |
 | | mixer | vco a, vco b (the two levels) |
 | | vcf | VCO B's cutoff, reso, vcf mod |
-| | vca a env | env 1, opening VCO A's VCA: attack, release, gate (a / b / a+b) |
-| | vca b env | env 2, opening VCO B's VCA: attack, release, gate |
-| | vcf env | env 3, the EG mod of both voices (vcf mod, and vco mod set to eg): attack, release, gate |
+| | env a | env 1, opening VCO A's VCA: attack, release, gate (a / b / a+b) |
+| | env b | env 2, opening VCO B's VCA: attack, release, gate |
+| | vcf eg | env 3, the EG mod of both voices (vcf mod, and vco mod set to eg): attack, release, gate |
+| | vco env | env 4, on the VCOs' pitch: amt a and amt b (how far it moves each VCO, up or down, up to 5 octaves), attack, release, gate |
 | xtra | a | the rest of VCO A: fine, vco mod and src, glide, its whole VCF, its VCA switch, volume, its LFO |
 | | fm | src (a vco / a out), mode (expo / lin) |
 | | b | fine, vco mod, vco src (lfo / eg), glide, vcf src (lfo / eg), polarity (+ / −), drive, vca (eg / on), volume, lfo rate, lfo wave |
 
-The three envelopes are ARs (the capacitor EG circuit, held at the top while its gate is on, then released), and each
+The four envelopes are ARs (the capacitor EG circuit, held at the top while its gate is on, then released), and each
 chooses the gate that fires it: gate a, gate b, or either. By default gate a plays VCO B (env 2), gate b VCO A (env 1),
-and either fires the filter envelope. The sustain switch of Elixir Synth's EG is gone.
+and either fires the filter and vco envelopes. The vco env, with a short release and its amount up (or down), gives
+percussive pitch drops and zaps. The sustain switch of Elixir Synth's EG is gone.
 
 **The seq page** is a gate and pitch sequencer, like the DFAM's: four lanes of sixteen steps (four pages, up to 64
 steps). **gate a** and **gate b** set each step's gate time (rest, a quarter to all of the step, or hold on to the

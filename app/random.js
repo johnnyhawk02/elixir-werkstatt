@@ -36,6 +36,9 @@ const RANDOM_VOICE = {
     rSet('wave', chance(0.5) ? 1 : 0); rSet('pwm', chance(0.5) ? 0 : rIn(10, 85)); rSet('fine', 0);
     const vib = chance(0.25);
     rSet('vcoMod', vib ? rIn(2, 25) : 0); rSet('vcoSrc', vib && chance(0.4) ? 1 : 0); rSet('glide', chance(0.3) ? rIn(5, 40) : 0);
+    // now and then a percussive pitch drop on the vco env
+    const perc = chance(0.25);
+    rSet('vcoEnv', perc ? rIn(10, 60) : 0); if (perc) setFm('e4Release', rIn(5, 35));
   },
   shape() {
     // the three envelopes (their gates stay): env 2 on vco b's VCA, env 1 on vco a's, env 3 on the filters
@@ -55,7 +58,7 @@ function alterSound(a = 0.1, keys = DR1) {
   for (const key of keys) {
     const sp = WS_SPEC[key], span = sp.max - sp.min;
     if (span < 20 || ['note', 'fine', 'volume'].includes(key)) continue;
-    if ((key === 'vcoMod' || key === 'glide') && !ws[key]) continue;
+    if ((key === 'vcoMod' || key === 'glide' || key === 'vcoEnv') && !ws[key]) continue;
     ws[key] = Math.max(sp.min, Math.min(sp.max, Math.round(ws[key] + (rnd() * 2 - 1) * a * span)));
   }
   sendWs();

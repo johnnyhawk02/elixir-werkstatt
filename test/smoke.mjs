@@ -98,7 +98,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   await pg.click('[data-m-tab="voice"]');
   check(await pg.evaluate(() => document.querySelectorAll('#m-vsec .m-btn').length === 2 && [...document.querySelectorAll('.m-vtab')].every((t) => {
     const [a, b] = [...t.querySelectorAll('.m-vpart')].map((e) => e.getBoundingClientRect()); return !b || (Math.abs(a.top - b.top) < 1 && a.right <= b.left + 1); })
-    && [...document.querySelectorAll('.m-vset')].length === 10), 'voice: panel and xtra tabs, sections side by side');
+    && [...document.querySelectorAll('.m-vset')].length === 11), 'voice: panel and xtra tabs, sections side by side');
   // the voice's randomisers, down the right of the voice page: a section's button changes only that section and shows its tab
   check(await pg.evaluate(() => { const v = document.querySelector('.m-voice-card .m-vbtns').getBoundingClientRect(), s = $('m-vsets').getBoundingClientRect(); return v.left >= s.right; }), 'voice: the randomisers sit on the right');
   {
