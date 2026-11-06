@@ -82,14 +82,14 @@ const drone = () => {
   for (let b = 0; b < Math.ceil(4 * len / 64); b++) {
     p._render(p.A);
     if (p.step === 2 && p.toNext > 0 && p.w.b.eg.stage !== 0) env1On = true;
-    if (p.step === 2 && p.toNext > len * 0.6 && (p.w.a.eg.stage === 1 || p.w.a.eg.stage === 2)) env2OnB = true;
-    if (p.step === 2 && p.toNext > len * 0.6 && (p.w.e3.stage === 1 || p.w.e3.stage === 2)) env3B = true;
-    if (p.step === 3 && p.toNext < len * 0.3 && p.w.a.eg.stage === 3) env2Early = true;
+    if (p.step === 2 && p.toNext > len * 0.6 && p.w.a.eg.stage === 1) env2OnB = true;
+    if (p.step === 2 && p.toNext > len * 0.9 && p.w.e3.v > 7) env3B = true;
+    if (p.step === 1 && p.toNext < len * 0.5 && p.w.a.eg.stage === 3) env2Early = true;
   }
   check(JSON.stringify(gates.slice(0, 4)) === JSON.stringify([[0, 'a'], [1, 'b'], [2, 'a'], [2, 'b']]), `the gates open on their steps (${JSON.stringify(gates.slice(0, 4))})`);
   check(JSON.stringify(offs.slice(0, 3)) === '[[0,0],[5,3],[7,2]]', `each step sets both pitches (${JSON.stringify(offs.slice(0, 3))})`);
   check(env1On && env3B && !env2OnB, 'gate b fires env 1 and env 3, not env 2');
-  check(env2Early, 'a quarter gate lets its envelope go before its step is out');
+  check(env2Early, 'the envelopes are ADs: env 2 decays while its full-step gate is still on');
 }
 // four pages: they play in turn, a bar each, then page 1 again
 {

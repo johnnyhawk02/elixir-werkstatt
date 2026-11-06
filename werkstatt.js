@@ -60,18 +60,18 @@ export const FM_PARAMS = [
   ['fmMode', 'fm mode', 'fm', 0, 1, 0, (v) => ['expo', 'lin'][v]], // into A's pitch CV, or a current into A's core
   ['levelA', 'a level', 'fm', 0, 100, 100, pctW],
   ['levelB', 'b level', 'fm', 0, 100, 0, pctW],
-  // the four AR envelopes (env 4, the vco env, below) and which gate fires each (a, b, or either): env 1 opens the modulator's VCA (the panel's
+  // the four AD envelopes (env 4, the vco env, below) and which gate fires each (a, b, or either): env 1 opens the modulator's VCA (the panel's
   // vco a), env 2 the main voice's (vco b), env 3 is both voices' EG mod source (their vcf mod and vco mod when set to
   // eg). Envs 1 and 2 take their attack and release from their voice's attack and decay knobs; env 3 has its own
   ['trig1', 'env 1 gate', 'fm', 0, 2, 1, (v) => ['a', 'b', 'a+b'][v]],
   ['trig2', 'env 2 gate', 'fm', 0, 2, 0, (v) => ['a', 'b', 'a+b'][v]],
   ['trig3', 'env 3 gate', 'fm', 0, 2, 2, (v) => ['a', 'b', 'a+b'][v]],
   ['e3Attack', 'env 3 attack', 'fm', 0, 100, 0, pctW],
-  ['e3Release', 'env 3 release', 'fm', 0, 100, 45, pctW],
+  ['e3Release', 'env 3 decay', 'fm', 0, 100, 45, pctW],
   // env 4, the vco env: each VCO's pitch, by its own vco env amount (for percussive pitch drops and zaps)
   ['trig4', 'env 4 gate', 'fm', 0, 2, 2, (v) => ['a', 'b', 'a+b'][v]],
   ['e4Attack', 'env 4 attack', 'fm', 0, 100, 0, pctW],
-  ['e4Release', 'env 4 release', 'fm', 0, 100, 20, pctW],
+  ['e4Release', 'env 4 decay', 'fm', 0, 100, 20, pctW],
 ].map(Object.freeze);
 export const FM_DEFAULTS = Object.freeze(Object.fromEntries(FM_PARAMS.map((p) => [p[0], p[5]])));
 
@@ -333,9 +333,9 @@ export class Werkstatt {
     this.p = { ...WS_DEFAULTS };
     this.offset = 0; // semitones from the base note (the sequencer's note plus the perf pitch)
     this.cv = null; // the pitch CV after glide, volts (1 V/oct from A4)
-    // in a pair: ar (the EG is an AR, holding at the top while its gate is held: the sustain switch is ignored) and
-    // modEnv (the EG used as the mod source, in place of its own)
-    this.ar = false; this.modEnv = null; this.pitchEnv = null;
+    // in a pair: ad (the EG is an AD: up at the attack, then straight down at the decay, whatever the gate does; the
+    // sustain switch is ignored) and modEnv (the EG used as the mod source, in place of its own)
+    this.ad = false; this.modEnv = null; this.pitchEnv = null;
     this.set({});
   }
   // knobs by key (any subset); a value is clamped to its range
@@ -361,7 +361,7 @@ export class Werkstatt {
     const target = (q.note + q.fine / 100 + this.offset - 69) / 12;
     if (this.cv === null) this.cv = target;
     this.cv = this.glideA ? target + (this.cv - target) * this.glideA : target;
-    const env = this.eg.process(this.rA, this.rD, this.ar || q.sustain), menv = this.modEnv ? this.modEnv.v : env;
+    const env = this.eg.process(this.rA, this.rD, this.ad ? 0 : q.sustain), menv = this.modEnv ? this.modEnv.v : env;
     const lfo = this.lfo.process(lfoHz(q.lfoRate), q.lfoWave);
     // the mod sources as volts: the LFO either way, the EG up (both scaled so full knob gives the octaves set)
     const src = (s) => (s ? menv / C.egPeak : lfo / C.lfoAmp);
@@ -399,11 +399,11 @@ export class WerkstattPair {
     this.b.oscOut = 0; this.os = this.a.os;
     this.decim = new Decimator(this.os);
     this.hpA = Math.exp((-2 * PI * WS_CIRCUIT.outputHp) / sampleRate); this.hpX = 0; this.hpY = 0;
-    // the four AR envelopes (env 4, the vco env, below): env 1 is B's own EG (the modulator, the panel's vco a), env 2 A's (the main voice, vco b),
+    // the four AD envelopes (env 4, the vco env, below): env 1 is B's own EG (the modulator, the panel's vco a), env 2 A's (the main voice, vco b),
     // env 3 a third, the same circuit, both voices' mod source
     const C = WS_CIRCUIT;
     this.e3 = new Eg(this.a.fs, C, C.egCap * (1 + new WRng(seed + 2).gaussian() * C.egCapTol / 3));
-    this.a.ar = this.b.ar = true; this.a.modEnv = this.b.modEnv = this.e3;
+    this.a.ad = this.b.ad = true; this.a.modEnv = this.b.modEnv = this.e3;
     // and env 4, the vco env, on both VCOs' pitch
     this.e4 = new Eg(this.a.fs, C, C.egCap * (1 + new WRng(seed + 3).gaussian() * C.egCapTol / 3));
     this.a.pitchEnv = this.b.pitchEnv = this.e4;
@@ -420,16 +420,12 @@ export class WerkstattPair {
     this.r4A = C.attackMinR + audioTaper(F.e4Attack / 100, C.attackPotR, C.potTaper);
     this.r4D = C.decayMinR + audioTaper(F.e4Release / 100, C.decayPotR, C.potTaper);
   }
-  // gate l (0: A, 1: B) on (a new gate: every envelope it fires starts again from where its capacitor is) or off (an
-  // envelope lets go once none of its gates is held)
+  // gate l (0: A, 1: B): on is a trigger, and every envelope it fires starts again from where its capacitor is; the
+  // envelopes are ADs, so a gate going off does nothing to them
   gate(l, on) {
-    const g = this.g, F = this.f;
-    g[l] = on;
-    [F.trig1, F.trig2, F.trig3, F.trig4].forEach((t, k) => {
-      if (t !== 2 && t !== l) return;
-      if (on) this.envs[k].on();
-      else if (!(t === 2 ? g[0] || g[1] : g[t])) this.envs[k].off();
-    });
+    const F = this.f;
+    this.g[l] = on;
+    if (on) [F.trig1, F.trig2, F.trig3, F.trig4].forEach((t, k) => { if (t === 2 || t === l) this.envs[k].on(); });
   }
   // the pitches: semitones from each voice's base note, for the panel's vco a (the modulator, B) and vco b (A)
   setOffsets(offA, offB) { this.b.setOffset(offA); this.a.setOffset(offB); }
@@ -444,7 +440,7 @@ export class WerkstattPair {
     const gA = A.p.volume / 100 * F.levelA / 100, gB = B.p.volume / 100 * F.levelB / 100;
     for (let i = 0; i < n; i++) {
       for (let k = 0; k < this.os; k++) {
-        this.e3.process(this.r3A, this.r3D, true); this.e4.process(this.r4A, this.r4D, true);
+        this.e3.process(this.r3A, this.r3D, false); this.e4.process(this.r4A, this.r4D, false);
         const bo = bOn ? B.tick() : 0, src = F.fmSrc ? bo : B.oscOut;
         const ao = F.fmMode ? A.tick(0, amt * src / C.fmLinR) : A.tick(amt * C.fmExpo * src, 0);
         d.push(ao * gA + bo * gB);
