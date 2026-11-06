@@ -22,7 +22,7 @@ const pushed = (p) => {
   q.fx = { ...q.fx, send: 60, ring: 40, verb: 50, width: 150, ringWave: 2, ringFreq: 70, vDecay: 110 };
   q.dist = { mix: 60, type: 1, p: [90, 40, 70, 100] };
   q.master = { comp: true, thresh: -24, ratio: 6, attack: 3, release: 200, makeup: 4 };
-  q.macro = { pitch: 0.37, decay: 140, filter: 70, fm: 160 };
+  q.macro = { pitch: 0.37, decay: 140, filter: 70, fm: 160 }; // (an old preset's macros: baked into the sound on loading)
   // voice B: an octave and a fifth up, into A by FM and heard a little
   q.wsB = { ...(q.ws || {}), note: ((q.ws && q.ws.note) || 36) + 19 }; q.fm = { fm: 40, fmSrc: 0, fmMode: 0, levelA: 100, levelB: 25 };
   q.seq = { ...q.seq, oct: 1, density: 60, len: 20, glide: 80 };

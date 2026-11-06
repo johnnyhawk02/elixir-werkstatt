@@ -37,8 +37,8 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
   --fs-xs: 1.12rem; --fs-s: 1.25rem; --fs-m: 1.3rem; --fs-l: 1.6rem;
   --rule: 1px solid rgb(var(--ink-rgb) / .38);
   position: absolute; left: 50%; top: 50%; width: 1000px; height: 600px; transform: translate(-50%, -50%) scale(var(--k, 1));
-  display: grid; grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: 124px minmax(0, 1fr) auto;
-  grid-template-areas: "top dials" "pages pages" "tabs tabs"; column-gap: 16px; padding: 8px 12px 10px;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "top" "pages" "tabs"; column-gap: 16px; padding: 8px 12px 10px;
   font-family: var(--body); color: var(--ink);
   touch-action: manipulation; -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none; /* a long hold mustn't bring up the phone's own menus */
@@ -166,9 +166,10 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m .m-row .m-vtrack, .m .m-vset .m-vtrack, .m .m-seqf .m-vtrack { width: min(52px, 100%); flex: 1; height: auto; min-height: 12px; }
 
 /* ---- the frame: title, pages, randomise and the page buttons ---- */
-.m-top { grid-area: top; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 10px 0 8px; }
-.m .m-title { align-self: flex-start; padding: 0; background: none; text-align: left; cursor: pointer; font-family: var(--display); font-size: 1.5rem; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
-.m-trow { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+/* one slim line along the top: the title and metronome on the left, play and the tempo dial on the right */
+.m-top { grid-area: top; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 2px 0 6px; }
+.m .m-title { align-self: center; min-height: 40px; padding: 0; background: none; text-align: left; cursor: pointer; font-family: var(--display); font-size: 1.5rem; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+.m-trow { display: flex; align-items: center; gap: 12px; }
 /* the metronome, beside the title: a little metronome, filled while on; its arm swings over to the other side on each
    beat while it plays */
 .m .m-metro { display: grid; place-items: center; flex: none; width: 40px; height: 40px; min-height: 40px; padding: 0; }
@@ -178,7 +179,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-metro.tock .m-metro-arm { transform: rotate(18deg); }
 .m .m-metro[aria-pressed="true"] { background: var(--ink) !important; color: var(--panel) !important; text-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .m-metro-arm { transition: none; } }
-.m-ver { display: block; margin-top: 4px; font-size: .7em; letter-spacing: .06em; text-transform: none; opacity: .7; }
+.m-ver { display: inline-block; margin-left: 10px; font-size: .7em; letter-spacing: .06em; text-transform: none; opacity: .7; }
 
 /* under the title: the play button (a triangle, a square while playing), and while recording (R) REC and the time */
 .m-tport { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -204,16 +205,18 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-tabs button[aria-selected="true"] { border-color: var(--ink); }
 .m .m-tabs button { min-height: 40px; padding: 0; font-size: 1.3rem !important; letter-spacing: .04em; }
 
-/* ---- perf, always on show: eight dials in a line along the top right ---- */
-.m-side { grid-area: dials; display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; overflow: hidden; }
-.m-play-card { display: grid; min-height: 0; padding: 6px 0 4px; }
-#m-perf { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 2px; min-height: 0; }
+/* ---- the tempo dial, beside play: a small ring with the readout and label to its right ---- */
+#m-perf { display: block; flex: none; }
+.m #m-perf .m-dial { flex-direction: row; container-type: normal; gap: 8px; height: 44px; }
+.m #m-perf .m-dial .m-vtrack { --s: 40px; }
+.m #m-perf .m-dial output { order: 2; height: auto; min-width: 4.2em; justify-content: flex-start; }
+.m #m-perf .m-dial .m-flab { order: 3; }
 /* the prefs sheet (a tap on the title opens it) */
 .m-rnd .m-rand-card { width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; pointer-events: auto;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, .5), inset 0 3px 10px rgba(0, 0, 0, .28); }
 .m-rnd .m-chead { gap: 16px; text-transform: uppercase; }
 /* prefs: under the dials */
-.m-seq.m-prefs { top: 136px; bottom: auto; height: auto; }
+.m-seq.m-prefs { top: 60px; bottom: auto; height: auto; }
 .m-prefs .m-rand-card { grid-template-rows: auto auto; }
 .m-prefs .m-chead .m-btn { min-height: 40px; min-width: 120px; font-size: var(--fs-s) !important; }
 .m-prefs-body { display: grid; gap: 16px; align-content: start; }
@@ -379,7 +382,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 
 /* ---- the knob step sequencer: a sheet over the pages, leaving the dials above it free; sixteen step bars in one
    row (the ones past the length faint), then length, slew, speed and depth as faders, and the buttons ---- */
-.m-seq { position: absolute; left: 8px; right: 8px; top: 136px; bottom: 8px; z-index: 10; pointer-events: none; display: flex; align-items: stretch; justify-content: center; }
+.m-seq { position: absolute; left: 8px; right: 8px; top: 60px; bottom: 8px; z-index: 10; pointer-events: none; display: flex; align-items: stretch; justify-content: center; }
 .m-seq[hidden] { display: none; }
 .m-seq-card { width: 100%; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
   pointer-events: auto; box-shadow: 0 -8px 30px rgba(0, 0, 0, .5), inset 0 3px 10px rgba(0, 0, 0, .28); }
@@ -445,18 +448,15 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 <main class="m" id="m">
   <header class="m-top">
     <div class="m-trow">
-      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v104</small></button>
+      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v105</small></button>
       <button class="m-btn m-metro" id="m-metro" type="button" aria-pressed="false" aria-label="metronome" title="metronome"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="m-metro-body" d="M9 2.5h6l4.5 19h-15z"/><path d="M6.5 16.5h11"/><g class="m-metro-arm"><path d="M12 19V5.5"/><rect x="10.3" y="8" width="3.4" height="3" rx=".5"/></g></svg></button>
     </div>
     <div class="m-tport">
       <button class="m-btn m-play" id="m-play" type="button" aria-pressed="false" aria-label="play (space)" title="play (space)"><i aria-hidden="true"></i></button>
       <output class="m-recind" id="m-rec-t" aria-live="polite" hidden></output>
+      <div class="m-faders m-dials" id="m-perf" aria-label="tempo"></div>
     </div>
   </header>
-
-  <div class="m-side" id="m-side" aria-label="perform">
-    <section class="m-card m-play-card"><div class="m-faders m-dials" id="m-perf"></div></section>
-  </div>
 
   <div class="m-pages" id="m-pages">
   <div class="m-panel" data-m-panel="main">
@@ -605,7 +605,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <label class="m-chk"><input id="m-pbpm" type="checkbox" checked><i aria-hidden="true"></i>loading a preset uses its tempo</label>
         <label class="m-chk"><input id="m-bigbuf" type="checkbox"><i aria-hidden="true"></i>bigger audio buffer (slower to respond, try it if the sound breaks up)</label>
         <output class="m-aload" id="m-aload">audio: not started</output>
-        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v104, 6 Nov, 08:42</footer>
+        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v105, 6 Nov, 08:54</footer>
       </div>
     </section>
   </div>
@@ -5512,7 +5512,13 @@ function useSnapshot(p, keepTempo) {
   // (and one from before voice B has none: B starts as a copy of A, with the FM off and B silent)
   Object.assign(wsB, LXR.WS_DEFAULTS, p.wsB || p.ws || {});
   Object.assign(fm, LXR.FM_DEFAULTS, p.fm || {});
+  // (the perf macros are gone: one a preset has is baked into the sound, decay and filter into voice A's knobs, the
+  // pitch into both voices' notes and fine tune)
   Object.assign(macro, MACRO0, p.macro);
+  for (const k of Object.keys(ws)) ws[k] = Math.round(wsEff(k));
+  const st = Math.round(macro.pitch || 0), cents = Math.round(((macro.pitch || 0) - st) * 100);
+  for (const v of [ws, wsB]) { v.note = Math.max(WS_SPEC.note.min, Math.min(WS_SPEC.note.max, v.note + st)); v.fine = Math.max(WS_SPEC.fine.min, Math.min(WS_SPEC.fine.max, v.fine + cents)); }
+  Object.assign(macro, MACRO0);
   if (!keepTempo && p.tempo) tempo = p.tempo;
   Object.assign(seq, structuredClone(SEQ0), structuredClone(p.seq || {}));
   seq.steps = fillPages(seq.steps.length ? seq.steps.slice(0, NSTEPS) : SEQ0.steps);
@@ -5680,20 +5686,13 @@ function mDepth() {
 }
 addEventListener('resize', mDepth);
 
-// ---- perf: eight dials in a line along the top, MIDI CC 1 to 8 in order: tempo, pitch, decay, filter, reso, fm (vco a into vco b), the
-// echo send and the reverb send. Decay and filter are macros on top of voice A's sound; the rest move the same settings
-// as their faders on the other pages ----
+// ---- tempo: one dial in the top line, beside play (MIDI CC 1). The other perf dials are gone, to give the pages the
+// room: reso and the FM are on the voice page, the sends on the fx page; the decay, filter and pitch macros are no more
+// (a preset that has them is baked into its sound on loading) ----
 const PERF_DIALS = [
-  ['tempo', { min: 40, max: 240, travel: 2, get: () => tempo, set: (v) => { tempo = v; sendSeq(); }, show: (v) => `${v} bpm`, dflt: 120 }],
-  // pitch is free: hundredths of a semitone, over twice the travel
-  ['pitch', { min: -24, max: 24, step: 0.01, travel: 2, get: () => macro.pitch, set: (v) => setMacro('pitch', v),
-    show: (v) => (Math.abs(v) < 0.005 ? '0 st' : (v > 0 ? '+' : '−') + Math.abs(v).toFixed(2) + ' st'), dflt: 0 }],
-  ...['decay', 'filter'].map((m) => [m, { min: 0, max: 200, get: () => macro[m], set: (v) => setMacro(m, v), show: pct, dflt: 100 }]),
-  ['reso', { min: 0, max: 100, get: () => ws.reso, set: (v) => setWs('reso', v), show: (v) => `${v}%`, dflt: () => LXR.WS_DEFAULTS.reso }],
-  ['fm', { min: 0, max: 100, get: () => fm.fm, set: (v) => setFm('fm', v), show: (v) => (v ? `${v}%` : 'off'), dflt: 0 }],
-  ...[['echo', 'send'], ['reverb', 'verb']].map(([l, k]) => [l, { min: 0, max: 100, get: () => fx[k], set: (v) => { fx[k] = v; sendMix(); }, show: sendPct, dflt: 0 }])];
+  ['tempo', { min: 40, max: 240, travel: 2, get: () => tempo, set: (v) => { tempo = v; sendSeq(); }, show: (v) => `${v} bpm`, dflt: 120 }]];
 const ccDials = PERF_DIALS.map(([label, o], i) => mFader($('m-perf'), label, { ...o, cc: i + 1 }));
-// MIDI in (Web MIDI, any input, any channel): CC 1 to 8 turn the dials, 0..127 over each one's range. Access is asked
+// MIDI in (Web MIDI, any input, any channel): CC 1 turns the tempo, 0..127 over each one's range. Access is asked
 // for at the first touch (or straight away if it was given before); controllers plugged in later are picked up
 {
   let redraw = 0;

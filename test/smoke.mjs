@@ -1,7 +1,7 @@
 // Drives the built page in Chromium at three window sizes (the 1000 x 600 layout itself, a wide window and a small one, where
 // it scales to fit): no errors, the screen keeps its 5:3 shape inside the window, no page scrolls but the presets list,
 // swipes and the page buttons along the bottom turn the page, fader drags don't, holding a fader opens
-// its sequencer, MIDI CC 1-8 turn the perf dials, the reverb sends, the note grid edits steps on four pages and copies
+// its sequencer, MIDI CC 1 turns the tempo dial, the reverb sends, the note grid edits steps on four pages and copies
 // page 1 to the others, space plays and stops, play runs the steps, presets save and load, and record downloads a WAV; a phone held upright is asked to turn sideways.
 //   node test/smoke.mjs [index.html]   (needs Playwright)
 import { createRequire } from 'node:module';
@@ -32,11 +32,11 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   const sr = await box('#m');
   check(Math.abs(sr.width / sr.height - 5 / 3) < 0.01 && sr.x >= -0.5 && sr.y >= -0.5 && sr.x + sr.width <= w + 0.5 && sr.y + sr.height <= h + 0.5
     && (Math.abs(sr.width - w) < 1 || Math.abs(sr.height - h) < 1), `the screen is 5:3 and fits the window (${Math.round(sr.width)} x ${Math.round(sr.height)})`);
-  check(await pg.evaluate(() => { const p = $('m-side'); return p.scrollHeight <= p.clientHeight && p.scrollWidth <= p.clientWidth; }), 'perf fits beside the pages');
-  // the eight perf dials in one line along the top, over the page buttons; the sixteen note steps in one line
-  check(await pg.evaluate(() => { const r = [...document.querySelectorAll('#m-perf .m-dial')].map((e) => e.getBoundingClientRect()), t = document.querySelector('.m-tabs').getBoundingClientRect();
+  // no perf dials: one slim top line (title, metronome, play, the tempo dial) over the pages; the sixteen note steps in one line
+  check(await pg.evaluate(() => { const r = [...document.querySelectorAll('#m-perf .m-dial')].map((e) => e.getBoundingClientRect()), top = document.querySelector('.m-top').getBoundingClientRect();
+    const pages = $('m-pages').getBoundingClientRect(), p = $('m-play').getBoundingClientRect();
     const s = [...document.querySelectorAll('#m-steps .m-step')].map((e) => e.getBoundingClientRect());
-    return r.length === 8 && r.every((b) => Math.abs(b.top - r[0].top) < 1 && b.bottom <= t.top) && s.length === 16 && s.every((b) => Math.abs(b.top - s[0].top) < 1); }), 'the dials and the steps are one line each');
+    return r.length === 1 && r[0].left >= p.right && r[0].bottom <= pages.top + 1 && top.height < $('m').getBoundingClientRect().height * 0.12 && s.length === 16 && s.every((b) => Math.abs(b.top - s[0].top) < 1); }), 'one tempo dial in the slim top line, and the steps are one line');
   // no randomise button or popup: the main page has the randomisers
   check(await pg.evaluate(() => !$('m-rnd') && !$('m-rnd-open')), 'no randomise popup');
   // the page buttons sit along the bottom, under the pages, and there's no x/y page
@@ -87,7 +87,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   // the metronome: a toggle kept in this browser; the player clicks on each beat with it on, and is silent with it off
   await pg.click('#m-metro');
   check(await pg.evaluate(() => metroOn && $('m-metro').getAttribute('aria-pressed') === 'true' && localStorage.getItem('elixir-werkstatt-metro') === '1'), 'the metronome (beside the title) turns on and is kept');
-  check(await pg.evaluate(() => { const m = $('m-metro').getBoundingClientRect(), t = $('m-title').getBoundingClientRect(); return m.left >= t.right && m.top < t.bottom && m.right <= $('m-side').getBoundingClientRect().left; }), 'the metronome sits beside the title');
+  check(await pg.evaluate(() => { const m = $('m-metro').getBoundingClientRect(), t = $('m-title').getBoundingClientRect(); return m.left >= t.right && m.top < t.bottom && m.right <= $('m-play').getBoundingClientRect().left; }), 'the metronome sits beside the title');
   await pg.click('#m-metro');
   check(await pg.evaluate(() => {
     const peak = (metro) => { const p = new Player(48000), L = new Float32Array(48000), R = new Float32Array(48000);
@@ -139,14 +139,15 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
   r = await box('.m-vsec');
   await drag(r.x + 20, r.y + 10, r.x + 20 + sr.width * 0.4, r.y + 10);
   check(await page() === 'seq', 'swipe right turns back to seq');
-  // a perf dial dragged sideways and up moves it, and doesn't turn the page
-  r = await box('#m-perf .m-vtrack >> nth=3');
-  const before = await pg.evaluate(() => macro.filter);
-  await drag(r.x + r.width / 2, r.y + r.height / 2, r.x + r.width / 2 + sr.width * 0.3, r.y - r.height);
-  check(await page() === 'seq' && await pg.evaluate(() => macro.filter) > before, 'a dial drag moves the dial, not the page');
-  // MIDI: CC 4 sends the filter dial to the top, CC 8 the reverb send to 50%, on any channel
-  await pg.evaluate(() => { window.__midiIn.onmidimessage({ data: [0xb0, 4, 127] }); window.__midiIn.onmidimessage({ data: [0xb3, 8, 64] }); });
-  check(await pg.evaluate(() => macro.filter === 200 && fx.verb === 50 && document.querySelectorAll('#m-perf .m-dial').length === 8), 'MIDI CC 4 and 8 turn the filter and reverb dials');
+  // the tempo dial dragged sideways and up moves it, and doesn't turn the page
+  r = await box('#m-perf .m-vtrack');
+  const before = await pg.evaluate(() => tempo);
+  await drag(r.x + r.width / 2, r.y + r.height / 2, r.x + r.width / 2 + sr.width * 0.3, r.y + r.height / 2 - sr.height * 0.3);
+  check(await page() === 'seq' && await pg.evaluate(() => tempo) > before, 'a tempo dial drag moves the tempo, not the page');
+  // MIDI: CC 1 sends the tempo to the top, on any channel; other CCs do nothing
+  await pg.evaluate(() => { const v = fx.verb; window.__midiIn.onmidimessage({ data: [0xb3, 1, 127] }); window.__midiIn.onmidimessage({ data: [0xb0, 8, 64] }); window.__v0 = v; fx.verb = 50; sendMix(); drawAll(); });
+  check(await pg.evaluate(() => tempo === 240 && document.querySelectorAll('#m-perf .m-dial').length === 1), 'MIDI CC 1 turns the tempo');
+  await pg.evaluate(() => { tempo = 120; sendSeq(); drawAll(); });
   // the reverb: the FX page's reverb send is the same as the dial's
   await pg.click('[data-m-tab="fx"]');
   check(await pg.evaluate(() => document.querySelector('#m-verb .m-vtrack').getAttribute('aria-valuenow') === '50'), 'the fx page shows the reverb send');

@@ -4,7 +4,7 @@ A mono synth in the browser: [Elixir Synth](https://github.com/johnnyhawk02/elix
 replaced by a component-level model of the **Moog Werkstatt-01** voice. **Play it (once GitHub Pages is on for this
 repo): https://johnnyhawk02.github.io/elixir-werkstatt/**
 
-Everything around the voice is Elixir Synth's: the note sequencer, the perf dials, the fader sequencers, the echo,
+Everything around the voice is Elixir Synth's: the note sequencer, the fader sequencers, the echo,
 reverb and ring mod, the distortion and compressor, presets and the recorder. The echo, distortion, ring mod and reverb
 are still the JavaScript port of the Erica Synths LXR-02 firmware's FX code
 ([erica-synths/lxr-desktop-app](https://github.com/erica-synths/lxr-desktop-app), GPL-3.0, commit a43cd4f). Elixir
@@ -17,8 +17,11 @@ Werkstatt is unofficial: it is not made, approved or endorsed by Moog or Erica S
 schematic (Moog BRD-10-011-1111):
 
 - **VCO**: a matched-pair expo converter (with bulk emitter resistance, so the top end runs a touch flat) driving a
-  ramp core: the current charges a capacitor, a comparator and switch reset it (the reset time is modelled too).
-  The saw is the ramp; the pulse is a second comparator against the PWM voltage. Both are band-limited (polyBLEP).
+  ramp core, worked out as the circuit: the current charges the timing capacitor; at the threshold the comparator
+  fires a one-shot that closes the reset switch, and the capacitor discharges through the switch's on-resistance
+  (not all the way: the ramp starts again from what's left). The saw is the capacitor's voltage; the pulse is a second
+  comparator against the PWM voltage, flipping inside the reset too. Each sample is solved exactly between those
+  events, and each edge is band-limited (polyBLEP) at its exact time and size.
 - **VCF**: the four-stage transistor ladder, each stage a tanh differential pair, with resonance feedback, solved per
   sample by the trapezoidal rule and Newton's method. It self-oscillates at the top of RES.
 - **EG**: the timing capacitor charges through the attack pot and a diode until the comparator trips at the peak, then
@@ -38,8 +41,8 @@ Werkstatt's panel.
 
 There are two Werkstatts, the same circuit, both playing the sequencer's notes (each from its own base note, so their
 freqs set the ratio). As on the DFAM, the first frequency-modulates the second: **vco a** modulates **vco b**, set on
-the **a→b fm** knob (also perf dial 6, MIDI CC 6), modelled as a circuit too. VCO B is the main voice: its VCF and EG
-are on the panel, and the perf dials, randomisers and morph act on it.
+the **a→b fm** knob, modelled as a circuit too. VCO B is the main voice: its VCF and EG
+are on the panel, and the randomisers and morph act on it.
 
 - **fm src**: VCO A's raw saw or pulse, taken before the mixer (the default), or VCO A after its own VCF and VCA, so its
   envelope shapes the modulation like a two-operator FM synth.
@@ -78,20 +81,12 @@ the Werkstatt's default sound. Presets here are kept under their own browser key
 The screen is landscape, 5:3, laid out once at 1000 x 600 and scaled as a whole to fit the window, with the case
 showing round it where the window is a different shape. That is how the plugin's window will resize.
 
-Perf is on show all the time. The other pages share the space under its dials: tap the page buttons along the bottom of the window, or swipe across
-them. The space bar starts and stops. Dragging a fader, a dial or the steps never turns the page. There are
-no play or record buttons: R starts and stops a recording.
-
-- **PERF** (always on show): eight dials in a line along the top right, and the randomise button (bottom left, beside the page buttons), which opens a popup of everything, sound, alter, notes, random fx, alter fx, undo, and
-  *next bar* (while playing, a randomise waits for the next bar). Drag a dial up or down to turn it. A MIDI controller
-  turns them too: CC 1 to 8, on any channel, left to right:
-
-  | CC | dial | | CC | dial |
-  |---|---|---|---|---|
-  | 1 | tempo | | 5 | reso |
-  | 2 | pitch (two octaves either way) | | 6 | fm (vco a into vco b) |
-  | 3 | decay | | 7 | echo send |
-  | 4 | filter | | 8 | reverb send |
+The top line is slim: the title (tap it for the prefs), the metronome, play and the **tempo** dial (drag it up or
+down; MIDI CC 1 on any channel turns it too). The pages have the rest of the screen: tap the page buttons along the
+bottom of the window, or swipe across them. The space bar starts and stops. Dragging a fader, a dial or the steps never
+turns the page. R starts and stops a recording. (Elixir Synth's other perf dials are gone, for the room: reso and the
+FM are on the voice page, the sends on the fx page, and an old preset's pitch, decay and filter macros are baked into
+its sound when it loads.)
 
   Drive, echo feedback, reverb decay and the distortion mix are on the voice, fx and mstr pages.
 

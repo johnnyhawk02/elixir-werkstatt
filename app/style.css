@@ -22,8 +22,8 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
   --fs-xs: 1.12rem; --fs-s: 1.25rem; --fs-m: 1.3rem; --fs-l: 1.6rem;
   --rule: 1px solid rgb(var(--ink-rgb) / .38);
   position: absolute; left: 50%; top: 50%; width: 1000px; height: 600px; transform: translate(-50%, -50%) scale(var(--k, 1));
-  display: grid; grid-template-columns: 150px minmax(0, 1fr); grid-template-rows: 124px minmax(0, 1fr) auto;
-  grid-template-areas: "top dials" "pages pages" "tabs tabs"; column-gap: 16px; padding: 8px 12px 10px;
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "top" "pages" "tabs"; column-gap: 16px; padding: 8px 12px 10px;
   font-family: var(--body); color: var(--ink);
   touch-action: manipulation; -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none; /* a long hold mustn't bring up the phone's own menus */
@@ -151,9 +151,10 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m .m-row .m-vtrack, .m .m-vset .m-vtrack, .m .m-seqf .m-vtrack { width: min(52px, 100%); flex: 1; height: auto; min-height: 12px; }
 
 /* ---- the frame: title, pages, randomise and the page buttons ---- */
-.m-top { grid-area: top; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 10px 0 8px; }
-.m .m-title { align-self: flex-start; padding: 0; background: none; text-align: left; cursor: pointer; font-family: var(--display); font-size: 1.5rem; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
-.m-trow { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+/* one slim line along the top: the title and metronome on the left, play and the tempo dial on the right */
+.m-top { grid-area: top; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 2px 0 6px; }
+.m .m-title { align-self: center; min-height: 40px; padding: 0; background: none; text-align: left; cursor: pointer; font-family: var(--display); font-size: 1.5rem; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+.m-trow { display: flex; align-items: center; gap: 12px; }
 /* the metronome, beside the title: a little metronome, filled while on; its arm swings over to the other side on each
    beat while it plays */
 .m .m-metro { display: grid; place-items: center; flex: none; width: 40px; height: 40px; min-height: 40px; padding: 0; }
@@ -163,7 +164,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-metro.tock .m-metro-arm { transform: rotate(18deg); }
 .m .m-metro[aria-pressed="true"] { background: var(--ink) !important; color: var(--panel) !important; text-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .m-metro-arm { transition: none; } }
-.m-ver { display: block; margin-top: 4px; font-size: .7em; letter-spacing: .06em; text-transform: none; opacity: .7; }
+.m-ver { display: inline-block; margin-left: 10px; font-size: .7em; letter-spacing: .06em; text-transform: none; opacity: .7; }
 
 /* under the title: the play button (a triangle, a square while playing), and while recording (R) REC and the time */
 .m-tport { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -189,16 +190,18 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 .m-tabs button[aria-selected="true"] { border-color: var(--ink); }
 .m .m-tabs button { min-height: 40px; padding: 0; font-size: 1.3rem !important; letter-spacing: .04em; }
 
-/* ---- perf, always on show: eight dials in a line along the top right ---- */
-.m-side { grid-area: dials; display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; overflow: hidden; }
-.m-play-card { display: grid; min-height: 0; padding: 6px 0 4px; }
-#m-perf { grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: 2px; min-height: 0; }
+/* ---- the tempo dial, beside play: a small ring with the readout and label to its right ---- */
+#m-perf { display: block; flex: none; }
+.m #m-perf .m-dial { flex-direction: row; container-type: normal; gap: 8px; height: 44px; }
+.m #m-perf .m-dial .m-vtrack { --s: 40px; }
+.m #m-perf .m-dial output { order: 2; height: auto; min-width: 4.2em; justify-content: flex-start; }
+.m #m-perf .m-dial .m-flab { order: 3; }
 /* the prefs sheet (a tap on the title opens it) */
 .m-rnd .m-rand-card { width: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px; pointer-events: auto;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, .5), inset 0 3px 10px rgba(0, 0, 0, .28); }
 .m-rnd .m-chead { gap: 16px; text-transform: uppercase; }
 /* prefs: under the dials */
-.m-seq.m-prefs { top: 136px; bottom: auto; height: auto; }
+.m-seq.m-prefs { top: 60px; bottom: auto; height: auto; }
 .m-prefs .m-rand-card { grid-template-rows: auto auto; }
 .m-prefs .m-chead .m-btn { min-height: 40px; min-width: 120px; font-size: var(--fs-s) !important; }
 .m-prefs-body { display: grid; gap: 16px; align-content: start; }
@@ -364,7 +367,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 
 /* ---- the knob step sequencer: a sheet over the pages, leaving the dials above it free; sixteen step bars in one
    row (the ones past the length faint), then length, slew, speed and depth as faders, and the buttons ---- */
-.m-seq { position: absolute; left: 8px; right: 8px; top: 136px; bottom: 8px; z-index: 10; pointer-events: none; display: flex; align-items: stretch; justify-content: center; }
+.m-seq { position: absolute; left: 8px; right: 8px; top: 60px; bottom: 8px; z-index: 10; pointer-events: none; display: flex; align-items: stretch; justify-content: center; }
 .m-seq[hidden] { display: none; }
 .m-seq-card { width: 100%; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr); gap: 12px;
   pointer-events: auto; box-shadow: 0 -8px 30px rgba(0, 0, 0, .5), inset 0 3px 10px rgba(0, 0, 0, .28); }

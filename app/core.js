@@ -276,7 +276,13 @@ function useSnapshot(p, keepTempo) {
   // (and one from before voice B has none: B starts as a copy of A, with the FM off and B silent)
   Object.assign(wsB, LXR.WS_DEFAULTS, p.wsB || p.ws || {});
   Object.assign(fm, LXR.FM_DEFAULTS, p.fm || {});
+  // (the perf macros are gone: one a preset has is baked into the sound, decay and filter into voice A's knobs, the
+  // pitch into both voices' notes and fine tune)
   Object.assign(macro, MACRO0, p.macro);
+  for (const k of Object.keys(ws)) ws[k] = Math.round(wsEff(k));
+  const st = Math.round(macro.pitch || 0), cents = Math.round(((macro.pitch || 0) - st) * 100);
+  for (const v of [ws, wsB]) { v.note = Math.max(WS_SPEC.note.min, Math.min(WS_SPEC.note.max, v.note + st)); v.fine = Math.max(WS_SPEC.fine.min, Math.min(WS_SPEC.fine.max, v.fine + cents)); }
+  Object.assign(macro, MACRO0);
   if (!keepTempo && p.tempo) tempo = p.tempo;
   Object.assign(seq, structuredClone(SEQ0), structuredClone(p.seq || {}));
   seq.steps = fillPages(seq.steps.length ? seq.steps.slice(0, NSTEPS) : SEQ0.steps);
