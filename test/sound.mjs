@@ -15,6 +15,7 @@ const presets = /const BUILTIN_PRESETS = (.*);\n/.exec(html)[1];
 const env = new Function(`${script('engine')}\n${script('player')}\nconst BUILTIN_PRESETS = ${presets};\n${core}
   return { LXR, Player, useSnapshot, snapshot, setFallback: (p) => { fallback = p; }, setPlaying: (v) => { playing = v; } };`)();
 const { Player } = env;
+Player.seed = 1; // (the same pair of units every run, so the sound can be compared)
 
 const pushed = (p) => {
   const q = structuredClone(p);

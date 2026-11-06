@@ -17,7 +17,10 @@ class Player {
     this.e.voices = 0;
     this.e.drums[0].triggeredPanL = this.e.drums[0].triggeredPanR = Math.SQRT1_2;
     // two of them: voice A and voice B, B able to frequency-modulate A (WerkstattPair)
-    this.w = new LXR.WerkstattPair(LXR.REAL_FS);
+    // a fresh seed each start, so each run is a different pair of units (their spread and noise); the tests fix it with
+    // Player.seed. (The LXR engine's own random numbers stay the firmware's)
+    this.seed = Player.seed ?? 1 + Math.floor(Math.random() * 0x7ffffffe);
+    this.w = new LXR.WerkstattPair(LXR.REAL_FS, this.seed);
     // ws: the Werkstatt's knobs as the page set them (the morph moves one of them from here)
     this.ws = { ...LXR.WS_DEFAULTS }; this.fm = { ...LXR.FM_DEFAULTS };
     this.gateOpen = false;
@@ -51,7 +54,7 @@ class Player {
     this.ring = new LXR.FxBus(); this.ring.fxType = LXR.FX_RING; this.ring.forceWet = true;
     // the reverb: the firmware's own (compiled out of the LXR-02, switched back on in the engine), a send bus
     this.verb = new LXR.FxBus(); this.verb.fxType = LXR.FX_REVERB; this.verb.forceWet = true;
-    this.fxRng = new LXR.Rng(0x2545f491);
+    this.fxRng = new LXR.Rng(Player.seed !== undefined ? 0x2545f491 : this.seed);
     this.sendE = 0; this.sendR = 0; this.sendV = 0; this.verbQuiet = 256; this.echoWidth = 1; this.fxGain = new Float32Array(6);
     this.distMix = 0; this.distAt = 0;
     this.busIn = new Float32Array(128); this.busOut = new Int16Array(128);

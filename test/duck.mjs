@@ -9,6 +9,7 @@ const core = readFileSync(new URL('app/core.js', root), 'utf8');
 const presets = /const BUILTIN_PRESETS = (.*);\n/.exec(html)[1];
 const env = new Function(`${script('engine')}\n${script('player')}\nconst BUILTIN_PRESETS = ${presets};\n${core}
   return { Player, useSnapshot, snapshot, setFallback: (p) => { fallback = p; }, setPlaying: (v) => { playing = v; } };`)();
+env.Player.seed = 1; // (the same pair of units every run)
 let fails = 0;
 const check = (ok, what) => { if (!ok) fails++; console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); };
 const base = JSON.parse(presets)[0];

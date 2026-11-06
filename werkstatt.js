@@ -74,6 +74,10 @@ export const WS_CIRCUIT = Object.freeze({
   attackMinR: 1e3, attackPotR: 1e6, decayMinR: 2.2e3, decayPotR: 2e6, potTaper: 100, // ohms; audio-taper base
   glideCap: 1e-6, glidePotR: 470e3, // glide lag: RC on the pitch CV
   vcaRabc: 47e3, vcaDivTop: 33e3, vcaDivBottom: 220, vcaRf: 30e3, vcaFeedthroughSd: 0.004,
+  // the spread between units (each voice is its own unit, drawn from its seed): the expo pair's Vbe mismatch left after
+  // trimming (V, 1 sigma: about 3 cents) and its 1 V/oct scale error (relative, 1 sigma), the cutoff's offset (V of CV,
+  // 1 sigma: about 4%), and the envelope capacitors' tolerance (relative, ~3 sigma)
+  expoVbeSd: 0.00005, expoScaleSd: 0.001, vcfOffsetSd: 0.06, egCapTol: 0.1,
   lfoAmp: 5, // LFO swing, +/- V
   outputHp: 10, // output coupling, Hz
   // the FM: the source through the FM pot (audio taper) into either A's expo summer (fmExpo volts of CV per volt at full
@@ -107,11 +111,12 @@ class WRng {
 
 // matched-pair expo converter: Vt ln(I/Iref) + rE (I - Iref) = dV, solved by Newton in the log domain
 class ExpoConverter {
-  constructor(iRef, tempK, trimTempK, rE) {
-    this.iRef = iRef; this.vt = thermalVoltage(tempK); this.vPerVolt = thermalVoltage(trimTempK) * Math.log(2); this.rE = rE;
+  constructor(iRef, tempK, trimTempK, rE, vbeOffset = 0, scaleErr = 0) {
+    this.iRef = iRef; this.vt = thermalVoltage(tempK); this.vPerVolt = thermalVoltage(trimTempK) * Math.log(2) * (1 + scaleErr); this.rE = rE;
+    this.vbeOffset = vbeOffset;
   }
   current(cv, iMax) {
-    const dV = cv * this.vPerVolt, vt = this.vt, rI = this.rE * this.iRef;
+    const dV = cv * this.vPerVolt + this.vbeOffset, vt = this.vt, rI = this.rE * this.iRef;
     let x = Math.min(dV / vt, Math.log(iMax / this.iRef));
     for (let k = 0; k < 6; k++) {
       const e = Math.exp(x), step = (vt * x + rI * (e - 1) - dV) / (vt + rI * e);
@@ -234,7 +239,7 @@ class RampVco {
 // attack at the peak. With sustain on it holds there while the gate is held; then (or straight away with sustain off)
 // it runs down through the decay pot. A new gate starts from wherever the capacitor is
 class Eg {
-  constructor(fs, C) { this.dt = 1 / fs; this.c = C.egCap; this.vSrc = C.egSupply - C.egDiode; this.vPeak = C.egPeak; this.v = 0; this.stage = 0; this.gate = false; }
+  constructor(fs, C, cap = C.egCap) { this.dt = 1 / fs; this.c = cap; this.vSrc = C.egSupply - C.egDiode; this.vPeak = C.egPeak; this.v = 0; this.stage = 0; this.gate = false; }
   on() { this.gate = true; this.stage = 1; }
   off() { this.gate = false; if (this.stage !== 0) this.stage = 3; }
   process(rA, rD, sustain) {
@@ -268,15 +273,17 @@ export class Werkstatt {
     const C = WS_CIRCUIT;
     this.C = C; this.os = C.oversample; this.fs = sampleRate * this.os;
     const tempK = 273.15 + C.temperature, trimK = 273.15 + C.trimTemperature;
+    // seed: which unit this is (its component spread and noise). The player draws a fresh one each time it starts
     const rng = new WRng(seed);
     this.vco = new RampVco(this.fs, C);
-    // iRef: the current that makes A4 (440 Hz) at 0 V of pitch CV
-    this.vcoExpo = new ExpoConverter(440 * C.vcoCap * C.vcoThreshold, tempK, trimK, C.expoRbulk);
+    // iRef: the current that makes A4 (440 Hz) at 0 V of pitch CV (as trimmed: what's left is the mismatch)
+    this.vcoExpo = new ExpoConverter(440 * C.vcoCap * C.vcoThreshold, tempK, trimK, C.expoRbulk, rng.gaussian() * C.expoVbeSd, rng.gaussian() * C.expoScaleSd);
+    this.vcfOffset = rng.gaussian() * C.vcfOffsetSd;
     this.vcoIMax = C.vcoMaxHz * C.vcoCap * C.vcoThreshold;
     this.ladder = new LadderFilter(this.fs, C.vcfCap, tempK, new WRng(seed + 17), C.ladderNoise);
     this.vcfExpo = new ExpoConverter(1, tempK, trimK, C.expoRbulk);
     this.vcfIMax = this.ladder.currentForCutoff(Math.min(C.vcfMaxHz, 0.45 * this.fs));
-    this.eg = new Eg(this.fs, C);
+    this.eg = new Eg(this.fs, C, C.egCap * (1 + rng.gaussian() * C.egCapTol / 3));
     this.vca = new OtaVca(C, tempK, rng);
     this.lfo = new Lfo(this.fs, C.lfoAmp);
     this.decim = new Decimator(this.os);
@@ -317,7 +324,7 @@ export class Werkstatt {
     const ic = Math.max(1e-12, this.vcoExpo.current(vcoCv, this.vcoIMax) + fmI);
     const [saw, pulse] = this.vco.process(ic, this.width);
     const osc = this.oscOut = q.wave ? pulse : saw;
-    const vcfCv = (q.vcfPol ? -1 : 1) * q.vcfMod / 100 * C.vcfModOctaves * src(q.vcfSrc);
+    const vcfCv = this.vcfOffset + (q.vcfPol ? -1 : 1) * q.vcfMod / 100 * C.vcfModOctaves * src(q.vcfSrc);
     const filt = this.ladder.process(osc * this.lin, this.vcfExpo.current(vcfCv, this.vcfIMax), this.k) / this.lin;
     return this.vca.process(filt, q.vcaMode ? C.egPeak : env);
   }
@@ -340,8 +347,9 @@ export class Werkstatt {
 // voice A, and a summing mixer adds the two at their levels (each after its own volume). B is only run when it's heard
 // or modulating, so it costs nothing at its defaults (FM off, level 0)
 export class WerkstattPair {
-  constructor(sampleRate) {
-    this.a = new Werkstatt(sampleRate, 1); this.b = new Werkstatt(sampleRate, 2);
+  // seed: A's unit; B is the next one along, so the two are never identical
+  constructor(sampleRate, seed = 1) {
+    this.a = new Werkstatt(sampleRate, seed); this.b = new Werkstatt(sampleRate, seed + 1);
     this.b.oscOut = 0; this.os = this.a.os;
     this.decim = new Decimator(this.os);
     this.hpA = Math.exp((-2 * PI * WS_CIRCUIT.outputHp) / sampleRate); this.hpX = 0; this.hpY = 0;

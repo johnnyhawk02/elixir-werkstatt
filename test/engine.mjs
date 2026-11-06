@@ -15,6 +15,7 @@ const presets = /const BUILTIN_PRESETS = (.*);\n/.exec(html)[1];
 const env = new Function(`${script('engine')}\n${script('player')}\nconst BUILTIN_PRESETS = ${presets};\n${core}
   return { LXR, Player, useSnapshot, snapshot, SCALES, degSemis, setFallback: (p) => { fallback = p; }, setPlaying: (v) => { playing = v; } };`)();
 const { LXR, Player } = env;
+Player.seed = 1; // (the same pair of units every run, so the sound can be compared)
 let fails = 0;
 const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) fails++; };
 
