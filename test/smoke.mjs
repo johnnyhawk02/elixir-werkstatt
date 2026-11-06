@@ -94,11 +94,11 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
       p.msg({ type: 'seq', playing: true, metro, len: 16, bpm: 120, vel: 100, glide: 0, accentDb: 0, steps: Array.from({ length: 16 }, () => ({ n: 0, gate: 0, acc: false, slide: false, m: 0 })) });
       p.process(L, R); let m = 0, last = -1e9, beats = 0; for (let i = 0; i < L.length; i++) { m = Math.max(m, Math.abs(L[i])); if (Math.abs(L[i]) > 0.05 && i - last > 4000) beats++; if (Math.abs(L[i]) > 0.05) last = i; } return [m, beats]; };
     const [on, n] = peak(true), [off] = peak(false); return !metroOn && on > 0.1 && off < 0.01 && n === 2; }), 'main: the metronome clicks on the beats (two a second at 120 bpm), silent when off');
-  // the voice page: five tabs (voice A's two, voice B's two, fm + mix), each's sections side by side, two rows of faders in each
+  // the voice page, laid out like the DFAM: a panel tab and an xtra tab, each's sections side by side
   await pg.click('[data-m-tab="voice"]');
-  check(await pg.evaluate(() => document.querySelectorAll('#m-vsec .m-btn').length === 5 && [...document.querySelectorAll('.m-vtab')].every((t) => {
+  check(await pg.evaluate(() => document.querySelectorAll('#m-vsec .m-btn').length === 2 && [...document.querySelectorAll('.m-vtab')].every((t) => {
     const [a, b] = [...t.querySelectorAll('.m-vpart')].map((e) => e.getBoundingClientRect()); return !b || (Math.abs(a.top - b.top) < 1 && a.right <= b.left + 1); })
-    && [...document.querySelectorAll('.m-vset')].length === 9), 'voice: five tabs, sections side by side');
+    && [...document.querySelectorAll('.m-vset')].length === 8), 'voice: panel and xtra tabs, sections side by side');
   // the voice's randomisers, down the right of the voice page: a section's button changes only that section and shows its tab
   check(await pg.evaluate(() => { const v = document.querySelector('.m-voice-card .m-vbtns').getBoundingClientRect(), s = $('m-vsets').getBoundingClientRect(); return v.left >= s.right; }), 'voice: the randomisers sit on the right');
   {
@@ -107,7 +107,7 @@ for (const [w, h] of [[1000, 600], [1600, 900], [700, 520]]) {
     await pg.click('.m-voice-card [data-vrand="filter"]');
     const now = await snap(), filt = VP_FILTER;
     check(Object.keys(now).every((n) => filt.includes(n) || now[n] === was[n]) && filt.some((n) => now[n] !== was[n])
-      && await pg.evaluate(() => mVSec === 1 && !$('m-vsets').children[1].hidden), 'voice: random filter changes the filter section only, and shows it');
+      && await pg.evaluate(() => mVSec === 0 && !$('m-vsets').children[0].hidden), 'voice: random filter changes the filter section only, and shows it');
     await pg.click('.m-vbtns [data-undo]');
     check(JSON.stringify(await snap()) === JSON.stringify(was), 'voice: undo puts it back');
     await pg.click('#m-vsec .m-btn >> nth=0');

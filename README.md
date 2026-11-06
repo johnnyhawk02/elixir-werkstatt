@@ -51,14 +51,18 @@ B only runs while it's heard or modulating, so with the FM off and its level at 
 did alone. The perf decay and filter dials and the morph act on voice A (the morph can also move the fm amount). A
 preset keeps B as `wsB` and the FM as `fm`; one from before voice B starts B as a copy of A, with the FM off.
 
-The voice page has each voice's controls in four sections:
+The voice page is laid out like the DFAM's panel, the two voices as its two VCOs, with the rest in an xtra tab:
 
-| section | controls |
-|---|---|
-| tone (VCO) | freq (the base note), fine, wave (saw / pulse), pwm, vco mod, vco src (lfo / eg), glide |
-| shape (EG, VCA) | attack, decay, sustain (off / on), vca (eg / on), volume |
-| filter (VCF) | cutoff, reso, vcf mod, vcf src (lfo / eg), polarity (+ / −), drive |
-| mod (LFO) | lfo rate, lfo wave (tri / square) |
+| tab | section | controls |
+|---|---|---|
+| panel | vco a | freq (the base note), wave (saw / pulse), pwm |
+| | vco b | freq, wave, pwm, b→a fm (the FM amount) |
+| | mixer | vco a, vco b (the two voices' levels) |
+| | vcf | voice A's cutoff, reso, vcf mod |
+| | eg / vca | voice A's attack, decay, sustain (off / on), volume |
+| xtra | a | fine, vco mod, vco src (lfo / eg), glide, vcf src (lfo / eg), polarity (+ / −), drive, vca (eg / on), lfo rate, lfo wave |
+| | fm | src (b vco / b out), mode (expo / lin) |
+| | b | the rest of voice B: fine, vco mod and src, glide, its whole VCF, EG and VCA, volume, its LFO |
 
 The sequencer's notes go on top of the base note; accents turn unaccented notes down after the voice, as before (the
 Werkstatt has no velocity). A gate opens the EG; a slide moves the pitch without a new gate. The morph can move cutoff,
@@ -98,7 +102,7 @@ no play or record buttons: R starts and stops a recording.
   glide time, and random, alter (the page shown) and undo. The algo fader picks how random writes a page: 1 dice,
   2 acid, 3 euclid, 4 arp, 5 walk, 6 motif, 7 groove, 8 phrase, 9 pure, 10 patternz (random bits of a bank of acid patterns, looped, moved up or down the scale, sometimes backwards, and put in the key; page 2 is page 1 changed a little, page 3 is page 1 moved up, page 4 a new cut-up). Presets from before there were pages play their one page
   on all four.
-- **VOICE**: both Werkstatt voices and the FM, on five tabs: a tone, a filter, b tone, b filter, fm + mix (see above).
+- **VOICE**: both Werkstatt voices and the FM, on a DFAM-style panel tab and an xtra tab (see above).
 - **FX**: the echo (tempo-synced on musical lengths, ping pong, tone, feedback, width), the reverb (send, predelay,
   decay, tone, early reflections; at the top its decay holds) and the ring mod, with random, alter and undo.
 - **MSTR**: distortion (tube, fold or rat) on the whole mix, then the compressor.

@@ -298,7 +298,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 /* the voice's and the fx page's randomisers, a column down the right: the whole page, each section, alter, undo */
 .m-vbtns { grid-column: 2; grid-row: 1 / 3; display: grid; grid-template-rows: 1.4fr; grid-auto-rows: minmax(0, 1fr); gap: 6px; min-height: 0; }
 .m .m-vbtns .m-btn { min-height: 0; font-size: min(var(--fs-xs), 15.6px) !important; padding: 0 4px; }
-.m-vsec { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); /* a tone, a filter, b tone, b filter, fm */ gap: 0; align-items: end; border-bottom: 2px solid var(--ink); }
+.m-vsec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); /* panel, xtra */ gap: 0; align-items: end; border-bottom: 2px solid var(--ink); }
 .m .m-vsec .m-btn { min-height: 44px; margin-bottom: -2px; border-color: transparent; border-bottom: 0; border-radius: 4px 4px 0 0; box-shadow: none; opacity: .8; }
 .m .m-vsec .m-btn[aria-selected="true"] { position: relative; z-index: 1; background: var(--panel) !important; color: var(--ink) !important; border-color: var(--ink); opacity: 1; text-shadow: inherit; }
 .m-vsets { display: grid; min-height: 0; margin-top: -10px; padding: 6px 4px 6px; border: 2px solid var(--ink); border-top: 0; }
@@ -445,7 +445,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
 <main class="m" id="m">
   <header class="m-top">
     <div class="m-trow">
-      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v100</small></button>
+      <button class="m-title" id="m-title" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="elixir werkstatt: preferences">elixir<small class="m-ver">werkstatt v101</small></button>
       <button class="m-btn m-metro" id="m-metro" type="button" aria-pressed="false" aria-label="metronome" title="metronome"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="m-metro-body" d="M9 2.5h6l4.5 19h-15z"/><path d="M6.5 16.5h11"/><g class="m-metro-arm"><path d="M12 19V5.5"/><rect x="10.3" y="8" width="3.4" height="3" rx=".5"/></g></svg></button>
     </div>
     <div class="m-tport">
@@ -605,7 +605,7 @@ body { position: relative; height: 100dvh; overflow: hidden; -webkit-tap-highlig
         <label class="m-chk"><input id="m-pbpm" type="checkbox" checked><i aria-hidden="true"></i>loading a preset uses its tempo</label>
         <label class="m-chk"><input id="m-bigbuf" type="checkbox"><i aria-hidden="true"></i>bigger audio buffer (slower to respond, try it if the sound breaks up)</label>
         <output class="m-aload" id="m-aload">audio: not started</output>
-        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v100, 6 Nov, 07:05</footer>
+        <footer class="m-foot">Werkstatt-01 circuit model, LXR-02 FX port, GPL-3.0, unofficial<br><a href="https://github.com/johnnyhawk02/elixir-werkstatt">Source</a> · v101, 6 Nov, 07:41</footer>
       </div>
     </section>
   </div>
@@ -5680,39 +5680,44 @@ const ccDials = PERF_DIALS.map(([label, o], i) => mFader($('m-perf'), label, { .
   if (navigator.permissions) navigator.permissions.query({ name: 'midi' }).then((p) => { if (p.state === 'granted') ask(); }, () => {});
 }
 
-// ---- voice: two Werkstatt-01 voices, A and B, each with its knobs and switches in four sections: tone (the VCO: freq,
-// wave, pwm, vco mod and its source, glide), shape (the EG's attack, decay and sustain, the VCA mode, volume), filter
-// (the VCF: cutoff, res, vcf mod, its source and polarity, drive) and mod (the LFO); then fm + mix: B into A's VCO
-// (amount, source, expo or linear) and the two voices' levels. Five tabs, each with its sections side by side ----
-const VP_PAGES = [...['tone', 'shape', 'filter', 'mod'].map((sec) => [sec, LXR.WS_PARAMS.filter((q) => q[2] === sec).map((q) => q[0])]),
-  ['fm', LXR.FM_PARAMS.map((q) => q[0])]];
+// ---- voice: laid out like the DFAM's panel. The panel tab has the two voices as the DFAM has its two VCOs: VCO A,
+// VCO B (with its FM into A, as the DFAM's 1->2 FM), the mixer, then voice A's VCF and its EG/VCA. The xtra tab has the
+// rest: voice A's other knobs and switches, the FM's switches, and everything else of voice B ----
 // every Werkstatt knob, for the randomisers
 const DR1 = LXR.WS_PARAMS.map((q) => q[0]);
-// each tab: [title, voice ('a', 'b', or null for the fm + mix), sections]
-const VP_TABS = [['a tone', 'a', ['tone', 'shape']], ['a filter', 'a', ['filter', 'mod']],
-  ['b tone', 'b', ['tone', 'shape']], ['b filter', 'b', ['filter', 'mod']], ['fm + mix', null, ['fm']]];
-// a voice's knobs, and how to set one
-const VOICE_OF = { a: { st: ws, set: setWs }, b: { st: wsB, set: setWsB } };
+// a voice's knobs, and how to set one ('fm': the FM and mixer)
+const VOICE_OF = { a: { st: ws, set: setWs }, b: { st: wsB, set: setWsB }, fm: { st: fm, set: setFm } };
+// each tab: [title, rows of faders, sections]; each section: [heading, box id, [[voice, key, label?], ...]]. (Voice A's
+// boxes are named as before, m-voice-tone, -shape, -filter, so presets' knob sequencers still find them)
+const A_ = (...ks) => ks.map((k) => ['a', k]), B_ = (...ks) => ks.map((k) => ['b', k]);
+const VP_TABS = [
+  ['panel', 2, [
+    ['vco a', 'm-voice-tone', A_('note', 'wave', 'pwm')],
+    ['vco b', 'm-voice-b', [...B_('note', 'wave', 'pwm'), ['fm', 'fm', 'b→a fm']]],
+    ['mixer', 'm-voice-mix', [['fm', 'levelA', 'vco a'], ['fm', 'levelB', 'vco b']]],
+    ['vcf', 'm-voice-filter', A_('cutoff', 'reso', 'vcfMod')],
+    ['eg / vca', 'm-voice-shape', A_('attack', 'decay', 'sustain', 'volume')]]],
+  ['xtra', 3, [
+    ['a', 'm-voice-mod', A_('fine', 'vcoMod', 'vcoSrc', 'glide', 'vcfSrc', 'vcfPol', 'drive', 'vcaMode', 'lfoRate', 'lfoWave')],
+    ['fm', 'm-voice-fm', [['fm', 'fmSrc', 'src'], ['fm', 'fmMode', 'mode']]],
+    ['b', 'm-voice-bx', B_('fine', 'vcoMod', 'vcoSrc', 'glide', 'cutoff', 'reso', 'vcfMod', 'vcfSrc', 'vcfPol', 'drive',
+      'attack', 'decay', 'sustain', 'vcaMode', 'volume', 'lfoRate', 'lfoWave')]]]];
 let mVSec = 0;
-const mVBoxes = VP_TABS.map(([title, voice, secs], k) => {
+const mVBoxes = VP_TABS.map(([title, rows, secs], k) => {
   const b = document.createElement('button'); b.type = 'button'; b.className = 'm-btn'; b.setAttribute('role', 'tab'); b.textContent = title;
   b.addEventListener('click', () => { mVSec = k; mVoiceShow(); }); $('m-vsec').append(b);
-  const tab = document.createElement('div'); tab.className = 'm-vtab'; $('m-vsets').append(tab);
-  const cols = secs.map((name) => Math.ceil(VP_PAGES.find(([n]) => n === name)[1].length / 2));
+  const tab = document.createElement('div'); tab.className = `m-vtab m-vrows${rows}`; $('m-vsets').append(tab);
+  const cols = secs.map(([, , ks]) => Math.ceil(ks.length / rows));
   tab.style.gridTemplateColumns = cols.map((c) => `${c}fr`).join(' '); // (each section as wide as its columns)
-  secs.forEach((name, j) => {
-    const ps = VP_PAGES.find(([n]) => n === name)[1];
+  secs.forEach(([name, id, ks], j) => {
     const sec = document.createElement('div'); sec.className = 'm-vpart';
-    const head = document.createElement('div'); head.className = 'm-fxhead'; head.innerHTML = '<b></b>';
-    head.firstChild.textContent = voice ? `${voice} ${name}` : 'fm (b into a) + mix';
-    // (voice A's boxes keep the ids they had before voice B, so presets' knob sequencers still find them)
-    const box = document.createElement('div'); box.className = 'm-faders m-vset'; box.id = voice === 'b' ? `m-voice-b-${name}` : `m-voice-${name}`;
-    box.style.gridTemplateColumns = `repeat(${cols[j]}, minmax(0, 1fr))`;
+    const head = document.createElement('div'); head.className = 'm-fxhead'; head.innerHTML = '<b></b>'; head.firstChild.textContent = name;
+    const box = document.createElement('div'); box.className = 'm-faders m-vset'; box.id = id;
+    box.style.gridTemplateColumns = `repeat(${cols[j]}, minmax(0, 1fr))`; box.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
     sec.append(head, box); tab.append(sec);
-    const V = voice ? VOICE_OF[voice] : { st: fm, set: setFm };
-    for (const key of ps) {
-      const sp = WS_SPEC[key];
-      mFader(box, sp.label, { min: sp.min, max: sp.max, get: () => V.st[key], set: (x) => V.set(key, x), show: (x) => sp.show(x), dflt: () => sp.dflt });
+    for (const [voice, key, label] of ks) {
+      const sp = WS_SPEC[key], V = VOICE_OF[voice];
+      mFader(box, label || sp.label, { min: sp.min, max: sp.max, get: () => V.st[key], set: (x) => V.set(key, x), show: (x) => sp.show(x), dflt: () => sp.dflt });
     }
   });
   return tab;
@@ -6239,8 +6244,8 @@ $('m-fs-rand').addEventListener('click', () => { const q = fsF.seq; q.vals = FS_
 // worth moving (the filter most often), each of a random kind, length, speed, depth and slew, now and then with a
 // slide or two; knob seqs off clears them all. Both can be undone
 const FS_TARGETS = ['m-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:cutoff', 'm-voice-filter:reso', 'm-voice-filter:vcf mod',
-  'm-voice-filter:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-tone:vco mod', 'm-voice-shape:decay', 'm-voice-mod:lfo rate',
-  'm-echo:send', 'm-echo:feedback', 'm-verb:send', 'm-ring:freq'];
+  'm-voice-mod:drive', 'm-voice-tone:pwm', 'm-voice-tone:pwm', 'm-voice-mod:vco mod', 'm-voice-shape:decay', 'm-voice-mod:lfo rate',
+  'm-voice-b:b→a fm', 'm-echo:send', 'm-echo:feedback', 'm-verb:send', 'm-ring:freq'];
 function fsClearAll() { for (const f of mFaders) { fsRelease(f); f.seq = null; } if (fsF) $('m-fs-close').click(); fsMarks(); }
 function fsRandomAll() {
   fsClearAll();
@@ -6329,9 +6334,7 @@ storedCheck('m-nextbar', 'elixir-werkstatt-nextbar', false);
 // sound: a new patch for the Werkstatt, in ranges that still play notes: the base note and the volume stay; mostly a
 // saw or a pulse through the ladder with the EG on the filter, now and then the LFO on the VCO or the filter. One part per
 // section of the voice page, so each section can be randomised on its own
-// (rV: the voice being randomised, A unless a section button is pressed with one of B's tabs showing)
-let rV = 'a';
-const rSet = (key, v) => { const sp = WS_SPEC[key]; VOICE_OF[rV].set(key, Math.max(sp.min, Math.min(sp.max, Math.round(v)))); };
+const rSet = (key, v) => { const sp = WS_SPEC[key]; VOICE_OF.a.set(key, Math.max(sp.min, Math.min(sp.max, Math.round(v)))); };
 const RANDOM_VOICE = {
   tone() {
     rSet('wave', chance(0.5) ? 1 : 0); rSet('pwm', chance(0.5) ? 0 : rIn(10, 85)); rSet('fine', 0);
@@ -6387,9 +6390,10 @@ for (const id of ['m-valter', 'm-mvalter']) $(id).addEventListener('click', (e) 
 for (const id of ['m-vrand', 'm-mvrand']) $(id).addEventListener('click', (e) => mRandomise(e.currentTarget, randomSound));
 // the voice page's section randomisers: one section new, and its tab shown so the change can be seen
 for (const b of document.querySelectorAll('[data-vrand]')) b.addEventListener('click', (e) => {
-  const sec = b.dataset.vrand, voice = VP_TABS[mVSec][1] === 'b' ? 'b' : 'a';
-  mVSec = VP_TABS.findIndex(([, v, secs]) => v === voice && secs.includes(sec)); mVoiceShow();
-  mRandomise(e.currentTarget, () => { rV = voice; try { RANDOM_VOICE[sec](); } finally { rV = 'a'; } });
+  // (voice A's section; the panel shows most of it, the xtra tab the lfo)
+  const sec = b.dataset.vrand;
+  mVSec = sec === 'mod' ? 1 : 0; mVoiceShow();
+  mRandomise(e.currentTarget, RANDOM_VOICE[sec]);
 });
 for (const b of document.querySelectorAll('[data-fxrand]')) b.addEventListener('click', (e) => mRandomise(e.currentTarget, () => { RANDOM_FX[b.dataset.fxrand](); sendMix(); }));
 for (const id of ['m-fxr2', 'm-fxr3']) $(id).addEventListener('click', (e) => mRandomise(e.currentTarget, randomFx));
