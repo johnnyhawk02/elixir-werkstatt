@@ -81,9 +81,9 @@ function nsLane(box, edit) {
     nsChanged();
   };
   box.addEventListener('pointerdown', (e) => { box.setPointerCapture(e.pointerId); on = true; at(e, true); });
-  box.addEventListener('pointermove', (e) => { if (on) at(e, false); });
   const stop = () => { on = false; };
-  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop);
+  box.addEventListener('pointermove', (e) => { if (on && !e.buttons) stop(); else if (on) at(e, false); });
+  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop);
 }
 // the notes; a touch that starts on the A/S row (or a little above it: the left half is A, the right S) switches that,
 // and a drag along the row sets the others the same. Otherwise the note is where the touch is on the step's bar

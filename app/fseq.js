@@ -94,17 +94,17 @@ fseqUse = (all) => {
     fsDraw();
   };
   box.addEventListener('pointerdown', (e) => { box.setPointerCapture(e.pointerId); painting = true; paint(e, true); });
-  box.addEventListener('pointermove', (e) => { if (painting) paint(e, false); });
   const stop = () => { painting = false; slideTo = null; };
-  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop);
+  box.addEventListener('pointermove', (e) => { if (painting && !e.buttons) stop(); else if (painting) paint(e, false); });
+  box.addEventListener('pointerup', stop); box.addEventListener('pointercancel', stop); box.addEventListener('lostpointercapture', stop);
 }
 // length, slew, speed and depth: vertical faders, the bottom 0 and the top all the way
 function fsBar(bar, setFrac) {
   const at = (e) => { const r = bar.getBoundingClientRect(); setFrac(Math.max(0, Math.min(1, (r.bottom - e.clientY) / r.height))); fsDraw(); };
   let held = false;
   bar.addEventListener('pointerdown', (e) => { bar.setPointerCapture(e.pointerId); held = true; at(e); });
-  bar.addEventListener('pointermove', (e) => { if (held) at(e); });
-  bar.addEventListener('pointerup', () => { held = false; }); bar.addEventListener('pointercancel', () => { held = false; });
+  bar.addEventListener('pointermove', (e) => { if (held && !e.buttons) held = false; else if (held) at(e); });
+  for (const t of ['pointerup', 'pointercancel', 'lostpointercapture']) bar.addEventListener(t, () => { held = false; });
 }
 fsBar($('m-fs-len'), (x) => { fsF.seq.len = 2 + Math.round(x * (FS_MAX - 2)); });
 fsBar($('m-fs-slew'), (x) => { fsF.seq.slew = Math.round(x * 20) * 5; });

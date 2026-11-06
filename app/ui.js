@@ -29,6 +29,7 @@ addEventListener('resize', () => mGo(mCur));
   });
   mPages.addEventListener('pointermove', (e) => {
     if (!sw || e.pointerId !== sw.id) return;
+    if (!e.buttons) { if (sw.on) mPages.classList.remove('swiping'); sw = null; return; } // (no press held: not a swipe)
     const dx = (e.clientX - sw.x) / mK, dy = (e.clientY - sw.y) / mK;
     if (!sw.on) {
       if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; }
@@ -103,8 +104,11 @@ function mFader(box, label, { min, max, step = 1, get, set, show, dflt, travel =
     clearTimeout(hold);
     hold = setTimeout(() => { if (!drag) return; const v = drag.v; end(); move(v); fsOpen(fd); }, 500);
   });
+  // a fader only moves while the press that started on it is held: a pointer moving over it with no button down (a
+  // release the page never heard, outside the window or under the step sequencer) ends the drag instead
   tr.addEventListener('pointermove', (e) => {
     if (!drag) return;
+    if (!e.buttons) { end(); return; }
     if (Math.abs(drag.y - e.clientY) > 6) clearTimeout(hold);
     // a drag near a detent catches on it (within grab of it either way)
     let v = drag.v + (drag.y - e.clientY) / (drag.h * travel) * (hiOf() - min);
@@ -112,7 +116,7 @@ function mFader(box, label, { min, max, step = 1, get, set, show, dflt, travel =
     move(v);
   });
   const end = () => { clearTimeout(hold); drag = null; el.classList.remove('held'); };
-  tr.addEventListener('pointerup', end); tr.addEventListener('pointercancel', end);
+  tr.addEventListener('pointerup', end); tr.addEventListener('pointercancel', end); tr.addEventListener('lostpointercapture', end);
   tr.addEventListener('keydown', (e) => {
     const d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
     if (d) { e.preventDefault(); move((fd.base !== null ? fd.base : get()) + d * step); }
